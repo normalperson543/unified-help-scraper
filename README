@@ -1,0 +1,8 @@
+## Unified Help Scraper Bot (uhs-bot)
+
+### Why is this allowed?
+The current scraping policy for Slack messages, which has been put into effect since June 15, states that scraping help channels are allowed:
+> Scraping messages in informational channels specifically designated by the FD and/or HQ for announcements, event support, documentation or other public information purposes. Right now, these channels are:
+> - #announcements
+> - All official bulletin channels for Hack Club programs
+> - **#help and dedicated help channels, like #stardance-help and #identity-help**
