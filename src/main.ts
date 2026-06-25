@@ -69,7 +69,7 @@ const app = new App({
               message: message.text ?? "",
               dateCreated: new Date(parseFloat(message.ts) * 1000),
               slackUserId: message.user,
-              messageId: message.ts;
+              messageId: message.ts
             },
           });
         } catch (e) {

@@ -15,13 +15,31 @@ export async function indexThread(
 
   let ticket = await prisma.ticket.findFirst({
     where: {
-      messageId: thread.messages[0]?.thread_ts as string,
+      messageId: threadTs as string,
     },
   });
+  console.log(thread.messages[0]);
   if (!ticket) {
+    const user = await prisma.slackUser.findUnique({
+      where: {
+        id: thread.messages[0]?.user as string,
+      },
+    });
+    if (!user) {
+      const slackUser = await client.users.info({
+        user: thread.messages[0]?.user as string,
+      });
+      await prisma.slackUser.create({
+        data: {
+          id: thread.messages[0]?.user as string,
+          username:
+            slackUser.user?.real_name ?? slackUser.user?.name ?? "Unknown user",
+        },
+      });
+    }
     ticket = await prisma.ticket.create({
       data: {
-        messageId: thread.messages[0]?.thread_ts as string,
+        messageId: threadTs,
         programId: program,
         message: (thread.messages[0]?.text as string) ?? "",
         dateCreated: new Date(
