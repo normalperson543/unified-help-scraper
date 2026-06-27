@@ -1,5 +1,6 @@
 import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma";
+import { getResolver } from "../lib/tools";
 
 export async function indexThread(
   client: WebClient,
@@ -16,6 +17,9 @@ export async function indexThread(
   let ticket = await prisma.ticket.findFirst({
     where: {
       messageId: threadTs as string,
+    },
+    include: {
+      assignees: true,
     },
   });
   console.log(thread.messages[0]);
@@ -41,11 +45,14 @@ export async function indexThread(
       data: {
         messageId: threadTs,
         programId: program,
-        message: (thread.messages[0]?.text as string) ?? "",
+        message: (thread.messages[0]?.text as string) ?? null,
         dateCreated: new Date(
           parseFloat(thread.messages[0]?.ts as string) * 1000,
         ),
         slackUserId: thread.messages[0]?.user as string,
+      },
+      include: {
+        assignees: true,
       },
     });
     console.log(
@@ -72,13 +79,20 @@ export async function indexThread(
       });
     }
     if (i > 0) {
-      const count = await prisma.reply.count({
+      let r = await prisma.reply.findFirst({
         where: {
           messageId: thread.messages[i]?.ts as string,
         },
+        include: {
+          slackUser: {
+            include: {
+              programs: true,
+            },
+          },
+        },
       });
-      if (count === 0) {
-        const r = await prisma.reply.create({
+      if (!r) {
+        r = await prisma.reply.create({
           data: {
             ticketId: ticket.id,
             messageId: thread.messages[i]?.ts as string,
@@ -88,10 +102,66 @@ export async function indexThread(
             ),
             slackUserId: thread.messages[i]?.user as string,
           },
+          include: {
+            slackUser: {
+              include: {
+                programs: true,
+              },
+            },
+          },
         });
+
         console.log(
           `Indexed reply from ${new Date(r.dateCreated).toLocaleString()}`,
         );
+      }
+      if (r.slackUser.isBot && r.message.includes("marked as resolved")) {
+        const resolver = await getResolver(r.message);
+        ticket = await prisma.ticket.update({
+          where: {
+            id: ticket.id,
+          },
+          data: {
+            resolverId: resolver?.id ?? "",
+            status: 2,
+          },
+          include: {
+            assignees: true,
+          },
+        });
+      }
+      if (r.slackUser.isBot && r.message.includes("reopened")) {
+        ticket = await prisma.ticket.update({
+          where: {
+            id: ticket.id,
+          },
+          data: {
+            resolver: {
+              disconnect: true,
+            },
+            status: ticket.assignees.length > 0 ? 1 : 0,
+          },
+          include: {
+            assignees: true,
+          },
+        });
+      }
+      console.log(r.slackUser.programs);
+      if (r.slackUser.programs.some((p) => p.id === program)) {
+        ticket = await prisma.ticket.update({
+          where: {
+            id: ticket.id,
+          },
+          data: {
+            assignees: {
+              connect: [{ id: r.slackUserId }],
+            },
+            status: 1,
+          },
+          include: {
+            assignees: true,
+          },
+        });
       }
     }
   }
