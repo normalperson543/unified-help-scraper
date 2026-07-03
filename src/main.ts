@@ -2,7 +2,9 @@ import { App } from "@slack/bolt";
 import { prisma } from "./lib/prisma";
 import { config } from "dotenv";
 import { indexThread } from "./tools/indexer";
-
+import { getResolver } from "./lib/tools";
+import type { BacklogJob } from "./lib/types";
+import express from "express";
 config();
 
 const app = new App({
@@ -11,6 +13,20 @@ const app = new App({
   appToken: process.env["SLACK_APP_TOKEN"]!,
 });
 
+const server = express();
+const port = 3000;
+
+const currentState = {
+    backlogger: <BacklogJob[]>[],
+  };
+  
+async function startBacklogTask(
+  programId: string,
+  older: string,
+  newer: string,
+) {
+
+}
 (async () => {
   // Start your app
   await app.start();
@@ -29,84 +45,18 @@ const app = new App({
       const isReply = message.thread_ts && message.thread_ts !== message.ts;
       if (isReply) {
         try {
-          console.log("hello");
-          const user = await prisma.slackUser.findUnique({
-            where: {
-              id: message.user,
-            },
-          });
-          if (!user) {
-            const slackUser = await app.client.users.info({
-              user: message.user,
-            });
-            await prisma.slackUser.create({
-              data: {
-                id: message.user,
-                username:
-                  slackUser.user?.real_name ??
-                  slackUser.user?.name ??
-                  "Unknown user",
-              },
-            });
-          }
-          const ticket = await prisma.ticket.findFirst({
-            where: {
-              messageId: message.thread_ts!,
-            },
-          });
-          if (!ticket) {
-            indexThread(
-              app.client,
-              program.id,
-              program.channelId,
-              message.thread_ts!,
-            );
-            return;
-          }
-          await prisma.reply.create({
-            data: {
-              ticketId: ticket.id,
-              message: message.text ?? "",
-              dateCreated: new Date(parseFloat(message.ts) * 1000),
-              slackUserId: message.user,
-              messageId: message.ts
-            },
-          });
+          indexThread(
+            app.client,
+            program.id,
+            message.channel,
+            message.thread_ts!,
+          );
         } catch (e) {
           console.warn(e);
         }
       } else {
-        // index the ticket
         try {
-          console.log("hello");
-          const user = await prisma.slackUser.findUnique({
-            where: {
-              id: message.user,
-            },
-          });
-          if (!user) {
-            const slackUser = await app.client.users.info({
-              user: message.user,
-            });
-            await prisma.slackUser.create({
-              data: {
-                id: message.user,
-                username:
-                  slackUser.user?.real_name ??
-                  slackUser.user?.name ??
-                  "Unknown user",
-              },
-            });
-          }
-          await prisma.ticket.create({
-            data: {
-              messageId: message.ts,
-              programId: program.id,
-              message: message.text ?? "",
-              dateCreated: new Date(parseFloat(message.ts) * 1000),
-              slackUserId: message.user,
-            },
-          });
+          indexThread(app.client, program.id, message.channel, message.ts!);
         } catch (e) {
           console.warn(e);
         }
@@ -116,3 +66,12 @@ const app = new App({
 
   app.logger.info("⚡️ Bolt app is running!");
 })();
+
+server.post("/api/backlog/:id/start", (req, res) => {
+  const programId = req.params.id;
+  const backlogTo = req.body.backlogTo;
+  const backlogFrom = req.body.backlogFrom;
+  console.log(`indexing program ${programId}`);
+  startBacklogTask(programId, backlogTo, backlogFrom)
+  res.json({"status": "started"})
+});

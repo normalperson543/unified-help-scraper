@@ -2,6 +2,25 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma";
 import { getResolver } from "../lib/tools";
 
+export async function createUser(client: WebClient, id: string) {
+  const user = await prisma.slackUser.findUnique({
+    where: {
+      id: id as string,
+    },
+  });
+  if (!user) {
+    const slackUser = await client.users.info({
+      user: id as string,
+    });
+    await prisma.slackUser.create({
+      data: {
+        id: id as string,
+        username:
+          slackUser.user?.real_name ?? slackUser.user?.name ?? "Unknown user",
+      },
+    });
+  }
+}
 export async function indexThread(
   client: WebClient,
   program: string,
@@ -24,23 +43,7 @@ export async function indexThread(
   });
   console.log(thread.messages[0]);
   if (!ticket) {
-    const user = await prisma.slackUser.findUnique({
-      where: {
-        id: thread.messages[0]?.user as string,
-      },
-    });
-    if (!user) {
-      const slackUser = await client.users.info({
-        user: thread.messages[0]?.user as string,
-      });
-      await prisma.slackUser.create({
-        data: {
-          id: thread.messages[0]?.user as string,
-          username:
-            slackUser.user?.real_name ?? slackUser.user?.name ?? "Unknown user",
-        },
-      });
-    }
+    await createUser(client, thread.messages[0]?.user as string);
     ticket = await prisma.ticket.create({
       data: {
         messageId: threadTs,
@@ -61,23 +64,7 @@ export async function indexThread(
   }
 
   for (let i = 0; i < thread.messages.length; i++) {
-    const user = await prisma.slackUser.findUnique({
-      where: {
-        id: thread.messages[i]?.user as string,
-      },
-    });
-    if (!user) {
-      const slackUser = await client.users.info({
-        user: thread.messages[i]?.user as string,
-      });
-      await prisma.slackUser.create({
-        data: {
-          id: thread.messages[i]?.user as string,
-          username:
-            slackUser.user?.real_name ?? slackUser.user?.name ?? "Unknown user",
-        },
-      });
-    }
+    await createUser(client, thread.messages[i]?.user as string);
     if (i > 0) {
       let r = await prisma.reply.findFirst({
         where: {
@@ -147,7 +134,7 @@ export async function indexThread(
         });
       }
       console.log(r.slackUser.programs);
-      if (r.slackUser.programs.some((p) => p.id === program)) {
+      if (r.slackUser.programs.some((p) => p.id === program) && ticket.status !== 2) {
         ticket = await prisma.ticket.update({
           where: {
             id: ticket.id,
@@ -156,7 +143,7 @@ export async function indexThread(
             assignees: {
               connect: [{ id: r.slackUserId }],
             },
-            status: 1,
+            status: 1
           },
           include: {
             assignees: true,

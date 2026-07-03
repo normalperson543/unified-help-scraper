@@ -20,9 +20,15 @@ importers:
       '@slack/web-api':
         specifier: ^7.17.0
         version: 7.17.0
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
       pg:
         specifier: ^8.22.0
         version: 8.22.0

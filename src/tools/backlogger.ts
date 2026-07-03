@@ -1,4 +1,4 @@
-const BACKLOG_TO = 1782122916196969;
+const BACKLOG_TO = 1782403025.611779;
 
 // TODO: automate this somehow
 
@@ -21,7 +21,7 @@ const app = new App({
 
   const history = await app.client.conversations.history({
     channel: "C07TM4C0AQ5",
-    latest: BACKLOG_TO.toString(),
+    oldest: BACKLOG_TO.toString(),
   });
   console.log(history)
   if (!history.messages) return;
