@@ -2,6 +2,8 @@ export type BacklogJob = {
   programId: string,
   actorId: string,
   startDate: Date;
+  backlogFrom: Date;
   backlogTo: Date;
-  complete: boolean;
+  finishDate?: Date;
+  error?: string;
 }

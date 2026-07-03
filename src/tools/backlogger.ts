@@ -1,40 +1,27 @@
-const BACKLOG_TO = 1782403025.611779;
-
-// TODO: automate this somehow
-
-import { App } from "@slack/bolt";
-import { config } from "dotenv";
+import type { WebClient } from "@slack/web-api";
+import type { Program } from "../../generated/prisma/client";
 import { indexThread } from "./indexer";
-import { exit } from "process";
 
-config();
-
-const app = new App({
-  token: process.env["SLACK_BOT_TOKEN"]!,
-  socketMode: true,
-  appToken: process.env["SLACK_APP_TOKEN"]!,
-});
-
-(async () => {
-  // Start your app
-  await app.start();
-
-  const history = await app.client.conversations.history({
-    channel: "C07TM4C0AQ5",
-    oldest: BACKLOG_TO.toString(),
+export default async function backlog(
+  client: WebClient,
+  program: Program,
+  oldest: string,
+  latest: string,
+) {
+  const history = await client.conversations.history({
+    channel: program.channelId,
+    oldest: oldest,
+    latest: latest,
+    limit: 999,
   });
-  console.log(history)
   if (!history.messages) return;
   for (let i = 0; i < history.messages.length; i++) {
     console.log(`Indexing ${history.messages[i]?.ts}`);
     await indexThread(
-      app.client,
-      "b007990a-a14e-4471-8af8-ab251fb8fc1b",
-      "C07TM4C0AQ5",
+      client,
+      program.id,
+      program.channelId,
       history.messages[i]?.ts!,
     );
   }
-  console.log("Complete.")
-
-  exit();
-})();
+}
