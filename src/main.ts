@@ -2,10 +2,9 @@ import { App } from "@slack/bolt";
 import { prisma } from "./lib/prisma";
 import { config } from "dotenv";
 import { indexThread } from "./tools/indexer";
-import { getResolver } from "./lib/tools";
 import type { BacklogJob } from "./lib/types";
 import express from "express";
-import backlog from "./tools/backlogger";
+import { backlog, stopBacklog } from "./tools/backlogger";
 config();
 
 const app = new App({
@@ -118,5 +117,18 @@ server.post("/api/backlog/:id/start", (req, res) => {
   res.json({ status: "created" });
 });
 server.get("/api/backlog/:id/status", (req, res) => {
-  res.json()
+  const programId = req.params.id;
+  const possibleIndex = currentState.backlogger.findIndex(
+    (t) => t.programId === programId,
+  );
+  if (possibleIndex !== -1) {
+    res.json({ status: "unqueued" });
+  }
+  res.json({ status: "pending", job: currentState.backlogger[possibleIndex] });
+});
+server.post("/api/backlog/:id/stop", (req, res) => {
+  const programId = req.params.id;
+  const actorId = req.body.actorId;
+  stopBacklog(programId, actorId);
+  res.json({ status: "stopped" });
 });
