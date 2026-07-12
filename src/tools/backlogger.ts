@@ -11,10 +11,13 @@ export async function backlog(
   oldest: string,
   latest: string,
 ) {
+  const sOldest = Math.floor(Number(oldest) / 1000);
+  const sLatest = Math.floor(Number(latest) / 1000);
+  console.log(oldest, latest, sOldest, sLatest);
   const history = await client.conversations.history({
     channel: program.channelId,
-    oldest: oldest,
-    latest: latest,
+    oldest: String(sOldest),
+    latest: String(sLatest),
     limit: 999,
   });
   if (!history.messages) return;
@@ -33,11 +36,13 @@ export async function backlog(
       const selectedJob = stopQueue[possibleIndex];
       if (!selectedJob) return;
       stopQueue.splice(possibleIndex);
+      console.log("stopping")
       throw new Error(
         `Stopped manually by ${selectedJob.actorId} on ${new Date(selectedJob.stopDate).toLocaleString()}`,
       );
     }
   }
+  console.log("Complete.");
 }
 
 export async function stopBacklog(programId: string, actorId: string) {
