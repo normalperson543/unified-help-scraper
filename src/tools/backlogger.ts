@@ -2,14 +2,17 @@ import type { WebClient } from "@slack/web-api";
 import type { Program } from "../../generated/prisma/client";
 import { indexThread } from "./indexer";
 import type { StopJob } from "../lib/types";
+import { currentState } from "../main";
 
 const stopQueue: StopJob[] = []; // extremely jank! but do i care? NO!
 
+// TODO: stop queue should be cleared per program when backlog starts
 export async function backlog(
   client: WebClient,
   program: Program,
   oldest: string,
   latest: string,
+  index: number
 ) {
   const sOldest = Math.floor(Number(oldest) / 1000);
   const sLatest = Math.floor(Number(latest) / 1000);
@@ -28,6 +31,7 @@ export async function backlog(
       program.id,
       program.channelId,
       history.messages[i]?.ts!,
+      
     );
     const possibleIndex = stopQueue.findIndex(
       (t) => t.programId === program.id,
@@ -41,6 +45,10 @@ export async function backlog(
         `Stopped manually by ${selectedJob.actorId} on ${new Date(selectedJob.stopDate).toLocaleString()}`,
       );
     }
+    if (currentState.backlogger[index]) {
+      currentState.backlogger[index].ts.current = history.messages[i]?.ts!
+    }
+    
   }
   console.log("Complete.");
 }
