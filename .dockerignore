@@ -1,0 +1,26 @@
+# Build context hygiene — keep secrets and machine-local artifacts out of the image.
+.git
+.gitignore
+node_modules
+dist
+
+# Regenerated inside the image by `prisma generate`; a host copy would mask it.
+src/generated
+
+# Secrets: inject via the runtime environment, never bake into a layer.
+.env
+.env.*
+
+# Stale compiled config at the repo root — the Prisma CLI prefers these over
+# prisma.config.ts, so shipping them would silently override the real config.
+prisma.config.js
+prisma.config.d.ts
+prisma.config.js.map
+prisma.config.d.ts.map
+
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
+AGENTS.md
+CLAUDE.md
