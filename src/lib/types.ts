@@ -7,10 +7,10 @@ export type BacklogJob = {
   finishDate?: Date;
   error?: string;
   ts: {
-    start: string,
-    current: string,
-    end: string
-  }
+    start: string;
+    current: string;
+    end: string;
+  };
 };
 export type StopJob = {
   programId: string;

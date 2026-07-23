@@ -36,8 +36,7 @@ export async function indexThread(
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
   const rootMessage = thread.messages[0] as
-    | ((typeof thread.messages)[number] & { pinned_to?: string[] })
-    | undefined;
+    ((typeof thread.messages)[number] & { pinned_to?: string[] }) | undefined;
   if (rootMessage?.pinned_to && rootMessage.pinned_to.length > 0) {
     console.log(`Skipping pinned message ${threadTs}`);
     return;
@@ -77,11 +76,16 @@ export async function indexThread(
   let assignedFirst = false;
   for (let i = 0; i < thread.messages.length; i++) {
     try {
-      await createUser(client, thread.messages[i]?.user as string ?? thread.messages[i]?.bot_id ?? thread.messages[i]?.app_id);
+      await createUser(
+        client,
+        (thread.messages[i]?.user as string) ??
+          thread.messages[i]?.bot_id ??
+          thread.messages[i]?.app_id,
+      );
     } catch (e) {
       console.error("Error creating user ", thread.messages[i]?.user as string);
       console.error(e);
-      console.error("Thread message: ", thread.messages[i])
+      console.error("Thread message: ", thread.messages[i]);
     }
     if (i > 0) {
       let r = await prisma.reply.findFirst({
@@ -118,17 +122,19 @@ export async function indexThread(
               ticket: true,
             },
           });
-        
 
           console.log(
             `Indexed reply from ${new Date(r.dateCreated).toLocaleString()}`,
           );
         } catch (e) {
-          console.error("Error indexing reply ", thread.messages[i]?.ts as string)
+          console.error(
+            "Error indexing reply ",
+            thread.messages[i]?.ts as string,
+          );
           console.error(e);
-          console.error("Reply info: ", thread.messages[i])
-          console.error("Ticket info: ", ticket)
-          continue
+          console.error("Reply info: ", thread.messages[i]);
+          console.error("Ticket info: ", ticket);
+          continue;
         }
       }
       console.log("resp times");
@@ -151,7 +157,11 @@ export async function indexThread(
           },
         });
       }
-      if (r.slackUser.isBot && (r.message.includes("marked as resolved") || r.message.includes("marked resolved"))) {
+      if (
+        r.slackUser.isBot &&
+        (r.message.includes("marked as resolved") ||
+          r.message.includes("marked resolved"))
+      ) {
         const resolver = await getResolver(r.message);
         try {
           ticket = await prisma.ticket.update({
@@ -161,7 +171,7 @@ export async function indexThread(
             data: {
               resolverId: resolver?.id ?? "",
               status: 2,
-              resolveTime: Number(r.messageId) - Number(r.ticket.messageId)
+              resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
             },
             include: {
               assignees: true,
@@ -171,7 +181,7 @@ export async function indexThread(
           console.error("Problem assigning a resolver: ", e);
           console.error("Resolver: ", resolver);
           console.error("Occurred on ticket ", ticket.id);
-          console.error("Reply: ", r)
+          console.error("Reply: ", r);
         }
       }
       if (r.slackUser.isBot && r.message.includes("reopened")) {
@@ -209,7 +219,7 @@ export async function indexThread(
               id: ticket.id,
             },
             data: {
-              firstResponseUserId: r.slackUserId
+              firstResponseUserId: r.slackUserId,
             },
             include: {
               assignees: true,
@@ -242,7 +252,7 @@ export async function indexThread(
 export async function addAsHelper(
   slackId: string,
   programId: string,
-  client: WebClient
+  client: WebClient,
 ) {
   await createUser(client, slackId);
   await prisma.slackUser.update({
@@ -262,8 +272,9 @@ export async function addAsHelper(
 export async function indexUsersFromUserGroup(
   groupId: string,
   programId: string,
-  client: WebClient
-) { // todo: move this to the scraper
+  client: WebClient,
+) {
+  // todo: move this to the scraper
   const users = await client.usergroups.users.list({
     usergroup: groupId,
   });
@@ -272,7 +283,7 @@ export async function indexUsersFromUserGroup(
     try {
       await addAsHelper(users.users[i]!, programId, client);
     } catch (e) {
-      console.error(e)
+      console.error(e);
       console.warn(`could not add user ${users.users[i]}`);
     }
   }

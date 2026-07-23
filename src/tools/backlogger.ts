@@ -12,7 +12,7 @@ export async function backlog(
   program: Program,
   oldest: string,
   latest: string,
-  index: number
+  index: number,
 ) {
   const sOldest = Math.floor(Number(oldest) / 1000);
   const sLatest = Math.floor(Number(latest) / 1000);
@@ -31,7 +31,6 @@ export async function backlog(
       program.id,
       program.channelId,
       history.messages[i]?.ts ?? "",
-      
     );
     const possibleIndex = stopQueue.findIndex(
       (t) => t.programId === program.id,
@@ -40,15 +39,14 @@ export async function backlog(
       const selectedJob = stopQueue[possibleIndex];
       if (!selectedJob) return;
       stopQueue.splice(possibleIndex);
-      console.log("stopping")
+      console.log("stopping");
       throw new Error(
         `Stopped manually by ${selectedJob.actorId} on ${new Date(selectedJob.stopDate).toLocaleString()}`,
       );
     }
     if (currentState.backlogger[index]) {
-      currentState.backlogger[index].ts.current = history.messages[i]?.ts ?? ""
+      currentState.backlogger[index].ts.current = history.messages[i]?.ts ?? "";
     }
-    
   }
   console.log("Complete.");
 }

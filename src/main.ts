@@ -1,7 +1,11 @@
 import { App } from "@slack/bolt";
 import { prisma } from "./lib/prisma";
 import { config } from "dotenv";
-import { addAsHelper, indexThread, indexUsersFromUserGroup } from "./tools/indexer";
+import {
+  addAsHelper,
+  indexThread,
+  indexUsersFromUserGroup,
+} from "./tools/indexer";
 import type { BacklogJob } from "./lib/types";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger";
