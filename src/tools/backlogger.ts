@@ -1,5 +1,5 @@
 import type { WebClient } from "@slack/web-api";
-import type { Program } from "../../generated/prisma/client";
+import type { Program } from "../generated/prisma/client";
 import { indexThread } from "./indexer";
 import type { StopJob } from "../lib/types";
 import { currentState } from "../main";
@@ -30,7 +30,7 @@ export async function backlog(
       client,
       program.id,
       program.channelId,
-      history.messages[i]?.ts!,
+      history.messages[i]?.ts ?? "",
       
     );
     const possibleIndex = stopQueue.findIndex(
@@ -46,7 +46,7 @@ export async function backlog(
       );
     }
     if (currentState.backlogger[index]) {
-      currentState.backlogger[index].ts.current = history.messages[i]?.ts!
+      currentState.backlogger[index].ts.current = history.messages[i]?.ts ?? ""
     }
     
   }

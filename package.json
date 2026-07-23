@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts"
   },
@@ -13,15 +15,18 @@
   "license": "ISC",
   "packageManager": "pnpm@10.29.2",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.0.0",
     "@types/pg": "^8.20.0",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
     "eslint": "^10.5.0",
+    "globals": "^17.7.0",
     "prettier": "^3.8.4",
     "prisma": "^7.8.0",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

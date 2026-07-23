@@ -5,7 +5,6 @@ import { addAsHelper, indexThread, indexUsersFromUserGroup } from "./tools/index
 import type { BacklogJob } from "./lib/types";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger";
-import { getSlackUser } from "./lib/data";
 config();
 
 const app = new App({

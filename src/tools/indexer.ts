@@ -74,8 +74,8 @@ export async function indexThread(
     );
   }
 
+  let assignedFirst = false;
   for (let i = 0; i < thread.messages.length; i++) {
-    let assignedFirst = false;
     try {
       await createUser(client, thread.messages[i]?.user as string ?? thread.messages[i]?.bot_id ?? thread.messages[i]?.app_id);
     } catch (e) {
