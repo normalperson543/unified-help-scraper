@@ -14,7 +14,7 @@ config();
 const app = new App({
   token: process.env["SLACK_BOT_TOKEN"]!,
   socketMode: true,
-  appToken: process.env["SLACK_APP_TOKEN"]!,
+  appToken: process.env["SLACK_API_TOKEN"]!,
 });
 
 const server = express();
