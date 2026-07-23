@@ -24,10 +24,16 @@ export async function createUser(client: WebClient, id: string) {
 }
 export async function indexThread(
   client: WebClient,
-  program: string,
+  programId: string,
   channel: string,
   threadTs: string,
 ) {
+  const program = await prisma.program.findUnique({
+    where: {
+      id: programId,
+    },
+  });
+  if (!program) return;
   const thread = await client.conversations.replies({
     channel: channel,
     ts: threadTs,
@@ -36,7 +42,8 @@ export async function indexThread(
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
   const rootMessage = thread.messages[0] as
-    ((typeof thread.messages)[number] & { pinned_to?: string[] }) | undefined;
+    | ((typeof thread.messages)[number] & { pinned_to?: string[] })
+    | undefined;
   if (rootMessage?.pinned_to && rootMessage.pinned_to.length > 0) {
     console.log(`Skipping pinned message ${threadTs}`);
     return;
@@ -57,7 +64,7 @@ export async function indexThread(
     ticket = await prisma.ticket.create({
       data: {
         messageId: threadTs,
-        programId: program,
+        programId: programId,
         message: (thread.messages[0]?.text as string) ?? null,
         dateCreated: new Date(
           parseFloat(thread.messages[0]?.ts as string) * 1000,
@@ -141,7 +148,7 @@ export async function indexThread(
       console.log(r.messageId);
       console.log(r.ticket.messageId);
       if (
-        r.slackUser.programs.some((p) => p.id === program) &&
+        r.slackUser.programs.some((p) => p.id === programId) &&
         !ticket.responseTime
       ) {
         console.log("okay go");
@@ -157,12 +164,9 @@ export async function indexThread(
           },
         });
       }
-      if (
-        r.slackUser.isBot &&
-        (r.message.includes("marked as resolved") ||
-          r.message.includes("marked resolved"))
-      ) {
+      if (r.slackUser.isBot && r.message.includes(program.resolveKeyword)) {
         const resolver = await getResolver(r.message);
+        if (!resolver) continue;
         try {
           ticket = await prisma.ticket.update({
             where: {
@@ -172,6 +176,7 @@ export async function indexThread(
               resolverId: resolver?.id ?? "",
               status: 2,
               resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
+              resolveDate: new Date(),
             },
             include: {
               assignees: true,
@@ -196,6 +201,7 @@ export async function indexThread(
               },
               resolveTime: 0,
               status: ticket.assignees.length > 0 ? 1 : 0,
+              resolveDate: null,
             },
             include: {
               assignees: true,
@@ -208,7 +214,7 @@ export async function indexThread(
       }
       console.log(r.slackUser.programs);
       if (
-        r.slackUser.programs.some((p) => p.id === program) &&
+        r.slackUser.programs.some((p) => p.id === programId) &&
         ticket.status !== 2
       ) {
         if (!assignedFirst) {
@@ -220,6 +226,7 @@ export async function indexThread(
             },
             data: {
               firstResponseUserId: r.slackUserId,
+              assignDate: new Date(),
             },
             include: {
               assignees: true,
