@@ -1,4 +1,4 @@
-import { getSlackUser } from "./data";
+import { getSlackUser } from "./data.js";
 
 export async function getResolver(str: string) {
   const firstPart = str.substring(str.indexOf("<@") + 2);

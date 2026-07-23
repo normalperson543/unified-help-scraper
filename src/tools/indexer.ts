@@ -1,6 +1,6 @@
 import type { WebClient } from "@slack/web-api";
-import { prisma } from "../lib/prisma";
-import { getResolver } from "../lib/tools";
+import { prisma } from "../lib/prisma.js";
+import { getResolver } from "../lib/tools.js";
 
 export async function createUser(client: WebClient, id: string) {
   const user = await prisma.slackUser.findUnique({

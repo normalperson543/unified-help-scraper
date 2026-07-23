@@ -1,8 +1,8 @@
 import type { WebClient } from "@slack/web-api";
-import type { Program } from "../generated/prisma/client";
-import { indexThread } from "./indexer";
-import type { StopJob } from "../lib/types";
-import { currentState } from "../main";
+import type { Program } from "../generated/prisma/client.js";
+import { indexThread } from "./indexer.js";
+import type { StopJob } from "../lib/types.js";
+import { currentState } from "../main.js";
 
 const stopQueue: StopJob[] = []; // extremely jank! but do i care? NO!
 

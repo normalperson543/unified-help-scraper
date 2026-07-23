@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { prisma } from "./prisma.js";
 
 export async function getSlackUser(id: string) {
   return await prisma.slackUser.findUnique({

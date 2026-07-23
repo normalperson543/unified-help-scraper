@@ -1,14 +1,14 @@
 import { App } from "@slack/bolt";
-import { prisma } from "./lib/prisma";
+import { prisma } from "./lib/prisma.js";
 import { config } from "dotenv";
 import {
   addAsHelper,
   indexThread,
   indexUsersFromUserGroup,
-} from "./tools/indexer";
-import type { BacklogJob } from "./lib/types";
+} from "./tools/indexer.js";
+import type { BacklogJob } from "./lib/types.js";
 import express from "express";
-import { backlog, stopBacklog } from "./tools/backlogger";
+import { backlog, stopBacklog } from "./tools/backlogger.js";
 config();
 
 const app = new App({
