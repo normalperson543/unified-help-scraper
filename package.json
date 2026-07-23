@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && prisma migrate deploy && tsc",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
