@@ -52,6 +52,7 @@ export async function backlog(
 }
 
 export async function stopBacklog(programId: string, actorId: string) {
+  if (stopQueue.some((q) => q.programId === programId)) return;
   stopQueue.push({
     programId: programId,
     actorId: actorId,

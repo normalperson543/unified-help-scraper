@@ -166,17 +166,16 @@ export async function indexThread(
       }
       if (r.slackUser.isBot && r.message.includes(program.resolveKeyword)) {
         const resolver = await getResolver(r.message);
-        if (!resolver) continue;
         try {
           ticket = await prisma.ticket.update({
             where: {
               id: ticket.id,
             },
             data: {
-              resolverId: resolver?.id ?? "",
+              resolverId: resolver?.id ?? null,
               status: 2,
               resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
-              resolveDate: new Date(),
+              resolveDate: r.dateCreated,
             },
             include: {
               assignees: true,
@@ -226,7 +225,7 @@ export async function indexThread(
             },
             data: {
               firstResponseUserId: r.slackUserId,
-              assignDate: new Date(),
+              assignDate: r.dateCreated,
             },
             include: {
               assignees: true,
