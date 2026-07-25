@@ -16,7 +16,6 @@ export async function backlog(
 ) {
   const sOldest = Math.floor(Number(oldest) / 1000);
   const sLatest = Math.floor(Number(latest) / 1000);
-  console.log(oldest, latest, sOldest, sLatest);
   const history = await client.conversations.history({
     channel: program.channelId,
     oldest: String(sOldest),
@@ -39,7 +38,7 @@ export async function backlog(
       const selectedJob = stopQueue[possibleIndex];
       if (!selectedJob) return;
       stopQueue.splice(possibleIndex);
-      console.log("stopping");
+      console.log("Stopping indexing");
       throw new Error(
         `Stopped manually by ${selectedJob.actorId} on ${new Date(selectedJob.stopDate).toLocaleString()}`,
       );

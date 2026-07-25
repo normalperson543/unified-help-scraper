@@ -52,7 +52,6 @@ server.get("/", (_req, res) => {
 server.post("/api/backlog/:id/start", (req, res) => {
   const programId = req.params.id;
   let backlogTo, backlogFrom;
-  console.log(req.body);
   if (req.body.backlogTo) backlogTo = req.body.backlogTo;
   if (req.body.backlogFrom) backlogFrom = req.body.backlogFrom;
   const actorId = req.body.actorId;
@@ -63,13 +62,12 @@ server.post("/api/backlog/:id/start", (req, res) => {
   if (possibleIndex !== -1) {
     return res.status(400).json({ status: "pending" });
   }
-  console.log(`indexing program ${programId}`);
+  console.log(`Starting indexing of program ${programId}.`);
   startBacklogTask(programId, actorId, backlogTo, backlogFrom);
   return res.json({ status: "created" });
 });
 server.post("/api/index-user-group/:id", (req, res) => {
   const programId = req.params.id;
-  console.log(req.body);
   const usergroupId = req.body.usergroupId;
 
   indexUsersFromUserGroup(usergroupId, programId, app.client);

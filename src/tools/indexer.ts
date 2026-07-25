@@ -58,7 +58,6 @@ export async function indexThread(
       assignees: true,
     },
   });
-  console.log(thread.messages[0]);
   if (!ticket) {
     await createUser(client, thread.messages[0]?.user as string);
     ticket = await prisma.ticket.create({
@@ -144,14 +143,10 @@ export async function indexThread(
           continue;
         }
       }
-      console.log("resp times");
-      console.log(r.messageId);
-      console.log(r.ticket.messageId);
       if (
         r.slackUser.programs.some((p) => p.id === programId) &&
         !ticket.responseTime
       ) {
-        console.log("okay go");
         ticket = await prisma.ticket.update({
           where: {
             id: ticket.id!,
@@ -211,7 +206,6 @@ export async function indexThread(
           console.error("Occurred on ticket ", ticket.id);
         }
       }
-      console.log(r.slackUser.programs);
       if (
         r.slackUser.programs.some((p) => p.id === programId) &&
         ticket.status !== 2
