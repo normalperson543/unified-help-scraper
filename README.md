@@ -4,11 +4,11 @@ Unified Help Scraper is a Slack bot that scrapes Hack Club help tickets from Sla
 
 Unified Help Scraper works best with the Unified Help platform: https://github.com/normalperson543/unified-help
 
-For production use, it's highly recommended that you see the Unified Help README for installation instructions. By itself, this bot does not provide any useful functionality. The following instructions are how you develop and build the Unified Help Scraper bot itself.
+For production use, it's highly recommended that you see the Unified Help README for installation instructions. The project is meant to be deployed with a Docker compose setup but it can be used by itself. By itself, this bot does not provide any useful functionality. The following instructions are how you develop and build the Unified Help Scraper bot itself.
 
 ## How to use
 
-The scraper provides an internal and unrestricted Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed directly with the Unified Help app (and not publicly), and changes can be breaking. The following is a list of the possible API routes:
+The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed directly with the Unified Help app (and not publicly), and changes can be breaking. The following is a list of the possible API routes:
 
 `GET /` - Returns `{online: "true"}` to indicate the scraper is responding correctly
 
@@ -28,6 +28,8 @@ This requires a Slack bot to be installed into your workspace. Go to https://api
 
 Git clone this repo. Next, rename .example.env to .env, and complete the environment variables. (ideally you should link the postgres database to the same database that Unified Help is on)
 
+Make sure your SCRAPER_API_KEY variable is the same on Unified Help and the scraper bot.
+
 ## Development
 
 Install deps:
@@ -46,7 +48,7 @@ Then run the development server:
 
 `npm run dev`
 
-The scraper is now running and will automatically index tickets. You can also open http://localhost:4000 to test the API.
+The scraper is now running and will automatically index tickets. You can also open http://localhost:4000 to test the API (make sure to pass the API key as x-api-key in the header).
 
 ## Deployment
 
@@ -70,7 +72,7 @@ Run the server:
 
 `node dist/main.js`
 
-The built version of the scraper is now running. You can also open http://localhost:4000 to test the API.
+The built version of the scraper is now running. You can also open http://localhost:4000 to test the API (make sure to pass the API key as x-api-key in the header).
 
 ## Building Docker image
 

@@ -9,7 +9,7 @@ import {
 import type { BacklogJob } from "./lib/types.js";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
-import * as Sentry from "@sentry/node"
+import * as Sentry from "@sentry/node";
 
 config();
 
@@ -18,7 +18,7 @@ if (process.env["SENTRY_URL"]) {
     dsn: process.env["SENTRY_URL"],
   });
 } else {
-  console.warn("No Sentry URL found. Continuing without Sentry.")
+  console.warn("No Sentry URL found. Continuing without Sentry.");
 }
 
 const app = new App({
@@ -33,6 +33,7 @@ const port = 4000;
 export const currentState = {
   backlogger: <BacklogJob[]>[],
 };
+
 /* claude code, temporary */
 process.on("unhandledRejection", (reason) =>
   console.error("🔴 unhandledRejection:", reason),
@@ -52,6 +53,25 @@ server.use(
   ) => {
     console.error("🔴 Express error:", err);
     if (!res.headersSent) res.status(500).json({ error: String(err) });
+  },
+);
+
+server.use(
+  (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    const apiKey = req.header("x-api-key"); // This middleware was made with Claude, I had to make it work with my current setup
+
+    if (!apiKey) {
+      return res.status(401).json({ error: "API key is missing" });
+    }
+
+    if (apiKey !== process.env.SCRAPER_API_KEY) {
+      return res.status(403).json({ error: "Invalid API key" });
+    }
+    next();
   },
 );
 
