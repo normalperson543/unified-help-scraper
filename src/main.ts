@@ -9,7 +9,13 @@ import {
 import type { BacklogJob } from "./lib/types.js";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
+import * as Sentry from "@sentry/node"
+
 config();
+
+Sentry.init({
+  dsn: process.env["SENTRY_URL"],
+});
 
 const app = new App({
   token: process.env["SLACK_BOT_TOKEN"]!,
