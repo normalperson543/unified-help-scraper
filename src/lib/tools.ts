@@ -1,7 +1,7 @@
 import { getSlackUser } from "./data.js";
 
 export async function getResolver(str: string) {
-  if (str.indexOf("<@") > -1) {
+  if (str.indexOf("<@") === -1) {
     return;
   }
   const firstPart = str.substring(str.indexOf("<@") + 2);
