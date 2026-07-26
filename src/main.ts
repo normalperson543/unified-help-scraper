@@ -13,9 +13,13 @@ import * as Sentry from "@sentry/node"
 
 config();
 
-Sentry.init({
-  dsn: process.env["SENTRY_URL"],
-});
+if (process.env["SENTRY_URL"]) {
+  Sentry.init({
+    dsn: process.env["SENTRY_URL"],
+  });
+} else {
+  console.warn("No Sentry URL found. Continuing without Sentry.")
+}
 
 const app = new App({
   token: process.env["SLACK_BOT_TOKEN"]!,
