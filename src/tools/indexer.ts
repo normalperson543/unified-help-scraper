@@ -42,8 +42,7 @@ export async function indexThread(
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
   const rootMessage = thread.messages[0] as
-    | ((typeof thread.messages)[number] & { pinned_to?: string[] })
-    | undefined;
+    ((typeof thread.messages)[number] & { pinned_to?: string[] }) | undefined;
   if (rootMessage?.pinned_to && rootMessage.pinned_to.length > 0) {
     console.log(`Skipping pinned message ${threadTs}`);
     return;
