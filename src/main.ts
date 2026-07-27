@@ -1,4 +1,4 @@
-import { App } from "@slack/bolt";
+import { App, ExpressReceiver } from "@slack/bolt";
 import { prisma } from "./lib/prisma.js";
 import { config } from "dotenv";
 import {
@@ -21,10 +21,14 @@ if (process.env["SENTRY_URL"]) {
   console.warn("No Sentry URL found. Continuing without Sentry.");
 }
 
+const receiver = new ExpressReceiver({
+  signingSecret: process.env["SLACK_SIGNING_SECRET"]!,
+  endpoints: '/events',
+});
+
 const app = new App({
   token: process.env["SLACK_BOT_TOKEN"]!,
-  socketMode: true,
-  appToken: process.env["SLACK_APP_TOKEN"]!,
+  receiver,
 });
 
 const server = express();
@@ -42,7 +46,9 @@ process.on("uncaughtException", (err) =>
   console.error("🔴 uncaughtException:", err),
 );
 
-server.use(express.json());
+server.use("/api", express.json());
+
+server.use("/slack", receiver.router);
 
 server.use(
   (
@@ -57,11 +63,8 @@ server.use(
 );
 
 server.use(
-  (
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  "/api",
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const apiKey = req.header("x-api-key"); // This middleware was made with Claude, I had to make it work with my current setup
 
     if (!apiKey) {
@@ -75,7 +78,7 @@ server.use(
   },
 );
 
-server.get("/", (_req, res) => {
+server.get("/api", (_req, res) => {
   return res.json({ online: "true" });
 });
 
@@ -191,9 +194,6 @@ async function startBacklogTask(
   }
 }
 (async () => {
-  // Start your app
-  await app.start();
-
   app.message(async ({ message }) => {
     if (message.subtype === undefined) {
       const program = await prisma.program.findFirst({
