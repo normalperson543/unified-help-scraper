@@ -42,7 +42,8 @@ export async function indexThread(
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
   const rootMessage = thread.messages[0] as
-    ((typeof thread.messages)[number] & { pinned_to?: string[] }) | undefined;
+    | ((typeof thread.messages)[number] & { pinned_to?: string[] })
+    | undefined;
   if (rootMessage?.pinned_to && rootMessage.pinned_to.length > 0) {
     console.log(`Skipping pinned message ${threadTs}`);
     return;
@@ -273,7 +274,6 @@ export async function indexUsersFromUserGroup(
   programId: string,
   client: WebClient,
 ) {
-  // todo: move this to the scraper
   const users = await client.usergroups.users.list({
     usergroup: groupId,
   });
@@ -284,6 +284,25 @@ export async function indexUsersFromUserGroup(
     } catch (e) {
       console.error(e);
       console.warn(`could not add user ${users.users[i]}`);
+    }
+  }
+}
+export async function indexUsersFromChannel(
+  channelId: string,
+  programId: string,
+  client: WebClient,
+) {
+  const users = await client.conversations.members({
+    channel: channelId,
+    limit: 999
+  });
+  if (!users || !users.members) return;
+  for (let i = 0; i < users.members.length; i++) {
+    try {
+      await addAsHelper(users.members[i]!, programId, client);
+    } catch (e) {
+      console.error(e);
+      console.warn(`could not add user ${users.members[i]}`);
     }
   }
 }

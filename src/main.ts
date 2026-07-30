@@ -4,6 +4,7 @@ import { config } from "dotenv";
 import {
   addAsHelper,
   indexThread,
+  indexUsersFromChannel,
   indexUsersFromUserGroup,
 } from "./tools/indexer.js";
 import type { BacklogJob } from "./lib/types.js";
@@ -23,7 +24,7 @@ if (process.env["SENTRY_URL"]) {
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env["SLACK_SIGNING_SECRET"]!,
-  endpoints: '/events',
+  endpoints: "/events",
 });
 
 const app = new App({
@@ -104,6 +105,13 @@ server.post("/api/index-user-group/:id", (req, res) => {
   const usergroupId = req.body.usergroupId;
 
   indexUsersFromUserGroup(usergroupId, programId, app.client);
+  return res.json({ status: "created" });
+});
+server.post("/api/index-channel/:id", (req, res) => {
+  const programId = req.params.id;
+  const channelId = req.body.channelId;
+
+  indexUsersFromChannel(channelId, programId, app.client);
   return res.json({ status: "created" });
 });
 server.get("/api/backlog/:id/status", (req, res) => {
@@ -249,6 +257,30 @@ async function startBacklogTask(
         } catch (e) {
           console.error(e);
         }
+      }
+    }
+  });
+
+  app.event("member_joined_channel", async ({ event, client }) => {
+    const { user, channel } = event;
+    if (user && channel) {
+      const program = await prisma.program.findFirst({
+        where: {
+          helperChannelId: channel,
+        },
+      });
+      if (!program || program === null) {
+        console.warn(
+          "Tried to find program with helper channel ID ",
+          channel,
+          " but no program was found, ignoring",
+        );
+      }
+      console.log("Adding user ", user, " to ", program?.id);
+      try {
+        await addAsHelper(user, program!.id, client);
+      } catch (e) {
+        console.error(e);
       }
     }
   });

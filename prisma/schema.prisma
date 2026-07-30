@@ -34,6 +34,7 @@ model Ticket {
   resolverId          String?
   replies             Reply[]
   firstResponseUserId String?
+  tag                 Tag[]
 }
 
 model Program {
@@ -47,6 +48,8 @@ model Program {
   userGroup       String?
   usersOrganizing User[]      @relation("programsOrganizing")
   resolveKeyword  String      @default("")
+  tags            Tag[]
+  helperChannelId String?
 }
 
 model SlackUser {
@@ -73,6 +76,14 @@ model Reply {
   dateCreated DateTime
   dateIndexed DateTime  @default(now())
   ticketId    String
+}
+
+model Tag {
+  id        String   @id @unique @default(uuid())
+  program   Program  @relation(fields: [programId], references: [id])
+  name      String
+  programId String
+  tickets   Ticket[]
 }
 
 model User {
