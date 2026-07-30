@@ -10,7 +10,7 @@ The scraper receives events the Slack API using HTTP over port 4000 (/slack).
 
 The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed with the Unified Help app, and changes can be breaking. The following is a list of the possible API routes (you must pass a x-api-token in headers matching the .env API token to see these routes):
 
-`GET /api` - Returns `{online: "true"}` to indicate the scraper is responding correctly
+`GET /` - Returns `{online: "true"}` to indicate the scraper is responding correctly
 
 `POST /api/backlog/[program ID]/start` - Starts a backlog task for a program. You can send a backlogTo and backlogFrom in the request body which indicate the Slack timestamps from where to start and end backlogging. Also requires an actorId in the request body corresponding to the Unified Help user ID that executed this task.
 
