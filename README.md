@@ -73,7 +73,3 @@ Run the server:
 `node dist/main.js`
 
 The built version of the scraper is now running. You can also open http://localhost:4000 to test the API (make sure to pass the API key as x-api-key in the header).
-
-## Building Docker image
-
-You can simply run `docker build .` to build the Unified Help scraper image.
