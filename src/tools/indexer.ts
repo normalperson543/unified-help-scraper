@@ -294,7 +294,7 @@ export async function indexUsersFromChannel(
 ) {
   const users = await client.conversations.members({
     channel: channelId,
-    limit: 999
+    limit: 100
   });
   if (!users || !users.members) return;
   for (let i = 0; i < users.members.length; i++) {
