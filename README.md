@@ -8,7 +8,7 @@ Unified Help Scraper works best with the Unified Help platform: https://github.c
 
 The scraper receives events the Slack API using HTTP over port 4000 (/slack).
 
-The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed directly with the Unified Help app (and not publicly), and changes can be breaking. The following is a list of the possible API routes (you must pass a x-api-token in headers matching the .env API token to see these routes):
+The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed with the Unified Help app, and changes can be breaking. The following is a list of the possible API routes (you must pass a x-api-token in headers matching the .env API token to see these routes):
 
 `GET /api` - Returns `{online: "true"}` to indicate the scraper is responding correctly
 
