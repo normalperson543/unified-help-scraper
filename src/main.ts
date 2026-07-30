@@ -47,7 +47,15 @@ process.on("uncaughtException", (err) =>
   console.error("🔴 uncaughtException:", err),
 );
 
-server.use("/api", express.json());
+// this was AI
+server.use(
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.path === "/" || req.path.startsWith("/api")) {
+      return express.json()(req, res, next);
+    }
+    next();
+  },
+);
 
 server.use("/slack", receiver.router);
 
@@ -78,6 +86,10 @@ server.use(
     next();
   },
 );
+
+server.get("/", (_req, res) => {
+  return res.json({ online: "true" });
+});
 
 server.get("/api", (_req, res) => {
   return res.json({ online: "true" });

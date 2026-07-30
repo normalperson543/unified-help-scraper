@@ -1,16 +1,16 @@
 # Unified Help Scraper Bot
 
-Unified Help Scraper is a Slack bot that scrapes Hack Club help tickets from Slack support channels and saves them on a database for use in the Unified Help platform. The scraper checks for new tickets and automatically indexes tickets into a database. It determines assignees, resolvers, response times, first responders, assignment times, and can even index user groups for programs. The scraper can also index old tickets with a backlog command.
+Unified Help Scraper is a Slack bot that scrapes Hack Club help tickets from Slack support channels and saves them on a database for use in the Unified Help platform. The scraper checks for new tickets and automatically indexes tickets into a database. It determines assignees, resolvers, response times, first responders, assignment times, and can even index user groups and channels and add users as helpers for programs. The scraper can also index old tickets with a backlog command.
 
 Unified Help Scraper works best with the Unified Help platform: https://github.com/normalperson543/unified-help
 
-For production use, it's highly recommended that you see the Unified Help README for installation instructions. The project is meant to be deployed with a Docker compose setup but it can be used by itself. By itself, this bot does not provide any useful functionality. The following instructions are how you develop and build the Unified Help Scraper bot itself.
-
 ## How to use
 
-The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed directly with the Unified Help app (and not publicly), and changes can be breaking. The following is a list of the possible API routes:
+The scraper receives events the Slack API using HTTP over port 4000 (/slack).
 
-`GET /` - Returns `{online: "true"}` to indicate the scraper is responding correctly
+The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed directly with the Unified Help app (and not publicly), and changes can be breaking. The following is a list of the possible API routes (you must pass a x-api-token in headers matching the .env API token to see these routes):
+
+`GET /api` - Returns `{online: "true"}` to indicate the scraper is responding correctly
 
 `POST /api/backlog/[program ID]/start` - Starts a backlog task for a program. You can send a backlogTo and backlogFrom in the request body which indicate the Slack timestamps from where to start and end backlogging. Also requires an actorId in the request body corresponding to the Unified Help user ID that executed this task.
 
