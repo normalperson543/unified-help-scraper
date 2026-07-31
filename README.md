@@ -4,6 +4,13 @@ Unified Help Scraper is a Slack bot that scrapes Hack Club help tickets from Sla
 
 Unified Help Scraper works best with the Unified Help platform: https://github.com/normalperson543/unified-help
 
+
+## Demo Video
+
+This shows adding helpers from user groups and indexing tickets within a date range, which are the two most important functions of this scraper:
+
+https://youtu.be/0e4hW7Ox3P4
+
 ## How to use
 
 The scraper receives events the Slack API using HTTP over port 4000 (/slack).

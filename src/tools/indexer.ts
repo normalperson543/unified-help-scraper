@@ -280,6 +280,7 @@ export async function indexUsersFromUserGroup(
   if (!users || !users.users) return;
   for (let i = 0; i < users.users.length; i++) {
     try {
+      console.log("Adding ", users.users[i]!, " to ", programId);
       await addAsHelper(users.users[i]!, programId, client);
     } catch (e) {
       console.error(e);
@@ -294,11 +295,12 @@ export async function indexUsersFromChannel(
 ) {
   const users = await client.conversations.members({
     channel: channelId,
-    limit: 100
+    limit: 100,
   });
   if (!users || !users.members) return;
   for (let i = 0; i < users.members.length; i++) {
     try {
+      console.log("Adding ", users.members[i]!, " to ", programId);
       await addAsHelper(users.members[i]!, programId, client);
     } catch (e) {
       console.error(e);
