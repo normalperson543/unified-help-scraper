@@ -17,6 +17,7 @@ config();
 if (process.env["SENTRY_URL"]) {
   Sentry.init({
     dsn: process.env["SENTRY_URL"],
+    environment: process.env["NODE_ENV"]
   });
 } else {
   console.warn("No Sentry URL found. Continuing without Sentry.");
@@ -204,6 +205,7 @@ async function startBacklogTask(
       const job = currentState.backlogger[newLength - 1];
       if (job !== undefined) {
         job.error = e.message;
+        console.error(e)
       }
     }
   } finally {

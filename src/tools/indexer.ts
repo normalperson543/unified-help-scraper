@@ -39,6 +39,7 @@ export async function indexThread(
     ts: threadTs,
   });
   if (!thread.messages) return;
+  if (thread.messages[0]?.user === process.env["BOT_USER_ID"]) return;
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
   const rootMessage = thread.messages[0] as
