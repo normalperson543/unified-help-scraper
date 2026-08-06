@@ -1,6 +1,9 @@
 import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
+import type { Ticket, SlackUser } from "../generated/prisma/client.js";
+
+type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
 
 export async function createUser(client: WebClient, id: string) {
   const user = await prisma.slackUser.findUnique({
@@ -51,7 +54,7 @@ export async function indexThread(
   }
   // end of claude code
 
-  let ticket = await prisma.ticket.findFirst({
+  const existingTicket = await prisma.ticket.findFirst({
     where: {
       messageId: threadTs as string,
     },
@@ -59,9 +62,13 @@ export async function indexThread(
       assignees: true,
     },
   });
-  if (!ticket) {
+
+  let ticket: TicketWithAssignees;
+  if (existingTicket) {
+    ticket = existingTicket;
+  } else {
     await createUser(client, thread.messages[0]?.user as string);
-    ticket = await prisma.ticket.create({
+    ticket = (await prisma.ticket.create({
       data: {
         messageId: threadTs,
         programId: programId,
@@ -74,7 +81,7 @@ export async function indexThread(
       include: {
         assignees: true,
       },
-    });
+    })) as TicketWithAssignees;
     console.log(
       `Indexed ticket from ${new Date(ticket.dateCreated).toLocaleString()}`,
     );
@@ -112,7 +119,7 @@ export async function indexThread(
         try {
           r = await prisma.reply.create({
             data: {
-              ticketId: ticket!.id,
+              ticketId: ticket.id,
               messageId: thread.messages[i]?.ts as string,
               message: thread.messages[i]?.text ?? "",
               dateCreated: new Date(
@@ -148,9 +155,9 @@ export async function indexThread(
         r.slackUser.programs.some((p) => p.id === programId) &&
         !ticket.responseTime
       ) {
-        ticket = await prisma.ticket.update({
+        ticket = (await prisma.ticket.update({
           where: {
-            id: ticket.id!,
+            id: ticket.id,
           },
           data: {
             responseTime: Number(r.messageId) - Number(r.ticket.messageId),
@@ -158,17 +165,25 @@ export async function indexThread(
           include: {
             assignees: true,
           },
-        });
+        })) as TicketWithAssignees;
       }
       if (r.slackUser.isBot && r.message.includes(program.resolveKeyword)) {
-        const resolver = await getResolver(r.message);
+        let resolver = null;
         try {
-          ticket = await prisma.ticket.update({
+          resolver = await getResolver(r.message);
+        } catch (e) {
+          console.error("Error finding resolver: ", e);
+          console.error("Reply: ", r);
+          console.error("Ticket: ", ticket);
+        }
+        try {
+          const resolverData = resolver?.id ? { resolverId: resolver.id } : {};
+          ticket = (await prisma.ticket.update({
             where: {
               id: ticket.id,
             },
             data: {
-              resolverId: resolver?.id ?? null,
+              ...resolverData,
               status: 2,
               resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
               resolveDate: r.dateCreated,
@@ -176,7 +191,7 @@ export async function indexThread(
             include: {
               assignees: true,
             },
-          });
+          })) as TicketWithAssignees;
         } catch (e) {
           console.error("Problem assigning a resolver: ", e);
           console.error("Resolver: ", resolver);
@@ -186,7 +201,7 @@ export async function indexThread(
       }
       if (r.slackUser.isBot && r.message.includes("reopened")) {
         try {
-          ticket = await prisma.ticket.update({
+          ticket = (await prisma.ticket.update({
             where: {
               id: ticket.id,
             },
@@ -201,7 +216,7 @@ export async function indexThread(
             include: {
               assignees: true,
             },
-          });
+          })) as TicketWithAssignees;
         } catch (e) {
           console.error("Problem reopening: ", e);
           console.error("Occurred on ticket ", ticket.id);
@@ -214,7 +229,7 @@ export async function indexThread(
         if (!assignedFirst) {
           // first user that responded!!
           assignedFirst = true;
-          ticket = await prisma.ticket.update({
+          ticket = (await prisma.ticket.update({
             where: {
               id: ticket.id,
             },
@@ -225,10 +240,10 @@ export async function indexThread(
             include: {
               assignees: true,
             },
-          });
+          })) as TicketWithAssignees;
         }
         try {
-          ticket = await prisma.ticket.update({
+          ticket = (await prisma.ticket.update({
             where: {
               id: ticket.id,
             },
@@ -241,7 +256,7 @@ export async function indexThread(
             include: {
               assignees: true,
             },
-          });
+          })) as TicketWithAssignees;
         } catch (e) {
           console.error("Problem assigning an assignee: ", e);
           console.error("Occurred on ticket ", ticket.id);
