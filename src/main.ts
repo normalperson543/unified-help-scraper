@@ -17,7 +17,7 @@ config();
 if (process.env["SENTRY_URL"]) {
   Sentry.init({
     dsn: process.env["SENTRY_URL"],
-    environment: process.env["NODE_ENV"]
+    environment: process.env["NODE_ENV"],
   });
 } else {
   console.warn("No Sentry URL found. Continuing without Sentry.");
@@ -205,7 +205,7 @@ async function startBacklogTask(
       const job = currentState.backlogger[newLength - 1];
       if (job !== undefined) {
         job.error = e.message;
-        console.error(e)
+        console.error(e);
       }
     }
   } finally {
@@ -216,7 +216,33 @@ async function startBacklogTask(
   }
 }
 (async () => {
-  app.message(async ({ message }) => {
+  app.message(async ({ event, message }) => {
+    if (event.subtype === "message_deleted") {
+      const deletedTs = event.deleted_ts;
+
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          messageId: deletedTs,
+        },
+      });
+      if (!ticket) return;
+      console.log("Deleting ticket: ", ticket);
+      await prisma.reply.deleteMany({
+        where: {
+          ticketId: ticket.id,
+        },
+      });
+      await prisma.iNote.deleteMany({
+        where: {
+          ticketId: ticket.id,
+        },
+      });
+      await prisma.ticket.delete({
+        where: {
+          id: ticket.id,
+        },
+      });
+    }
     if (message.subtype === undefined) {
       const program = await prisma.program.findFirst({
         where: {
