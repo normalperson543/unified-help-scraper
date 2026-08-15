@@ -183,7 +183,6 @@ export async function indexThread(
           console.error("Ticket: ", ticket);
         }
         if (!resolver) continue;
-        if (resolver.id === process.env["RESOLVER_USER_ID"]) continue; // skip any resolver messages with resolver ID
         try {
           const resolverData = resolver?.id ? { resolverId: resolver.id } : {};
           ticket = (await prisma.ticket.update({
