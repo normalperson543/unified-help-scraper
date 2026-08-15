@@ -103,56 +103,47 @@ export async function indexThread(
       console.error("Thread message: ", thread.messages[i]);
     }
     if (i > 0) {
-      let r = await prisma.reply.findFirst({
-        where: {
-          messageId: thread.messages[i]?.ts as string,
-        },
-        include: {
-          slackUser: {
-            include: {
-              programs: true,
-            },
-          },
-          ticket: true,
-        },
-      });
-      if (!r) {
-        if (thread.messages[i]?.text === "?resolve") continue;
-        if (thread.messages[i]?.text === "?reopen") continue;
-        try {
-          r = await prisma.reply.create({
-            data: {
-              ticketId: ticket.id,
-              messageId: thread.messages[i]?.ts as string,
-              message: thread.messages[i]?.text ?? "",
-              dateCreated: new Date(
-                parseFloat(thread.messages[i]?.ts as string) * 1000,
-              ),
-              slackUserId: thread.messages[i]?.user as string,
-            },
-            include: {
-              slackUser: {
-                include: {
-                  programs: true,
-                },
-              },
-              ticket: true,
-            },
-          });
+      if (thread.messages[i]?.text === "?resolve") continue;
+      if (thread.messages[i]?.text === "?reopen") continue;
 
-          console.log(
-            `Indexed reply from ${new Date(r.dateCreated).toLocaleString()}`,
-          );
-        } catch (e) {
-          console.error(
-            "Error indexing reply ",
-            thread.messages[i]?.ts as string,
-          );
-          console.error(e);
-          console.error("Reply info: ", thread.messages[i]);
-          console.error("Ticket info: ", ticket);
-          continue;
-        }
+      let r;
+      try {
+        r = await prisma.reply.upsert({
+          where: {
+            messageId: thread.messages[i]?.ts as string,
+          },
+          update: {},
+          create: {
+            ticketId: ticket.id,
+            messageId: thread.messages[i]?.ts as string,
+            message: thread.messages[i]?.text ?? "",
+            dateCreated: new Date(
+              parseFloat(thread.messages[i]?.ts as string) * 1000,
+            ),
+            slackUserId: thread.messages[i]?.user as string,
+          },
+          include: {
+            slackUser: {
+              include: {
+                programs: true,
+              },
+            },
+            ticket: true,
+          },
+        });
+
+        console.log(
+          `Indexed reply from ${new Date(r.dateCreated).toLocaleString()}`,
+        );
+      } catch (e) {
+        console.error(
+          "Error indexing reply ",
+          thread.messages[i]?.ts as string,
+        );
+        console.error(e);
+        console.error("Reply info: ", thread.messages[i]);
+        console.error("Ticket info: ", ticket);
+        continue;
       }
       if (
         r.slackUser.programs.some((p) => p.id === programId) &&
@@ -170,7 +161,7 @@ export async function indexThread(
           },
         })) as TicketWithAssignees;
       }
-      if (RESOLVE_MACROS.some((m) => m.keyword === r.message)) {
+      if (RESOLVE_MACROS.some((m) => r.message.includes(m.keyword)) && r.slackUser.isBot) {
         // resolve the ticket anonymously
         try {
           ticket = (await prisma.ticket.update({

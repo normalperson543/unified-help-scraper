@@ -1,18 +1,18 @@
 export const RESOLVE_MACROS = [
   {
-    keyword: "?hackatime",
+    keyword: "could you send that question to the Hackatime team",
     friendlyMessage: "Redirected to Hackatime Help",
   },
   {
-    keyword: "?identity",
+    keyword: "please could you ask questions about identity verification",
     friendlyMessage: "Redirected to IDV help",
   },
   {
-    keyword: "?fraud",
+    keyword: "Would you mind directing any fraud related queries to",
     friendlyMessage: "Redirected to FS",
   },
   {
-    keyword: "?shipwrights",
+    keyword: "Please ask questions about project shipping or certifications",
     friendlyMessage: "Redirected to Shipwrights",
   },
 ];
