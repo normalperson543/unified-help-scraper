@@ -42,7 +42,6 @@ export async function indexThread(
     ts: threadTs,
   });
   if (!thread.messages) return;
-  if (thread.messages[0]?.user === process.env["BOT_USER_ID"]) return;
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
   const rootMessage = thread.messages[0] as
@@ -89,12 +88,13 @@ export async function indexThread(
 
   let assignedFirst = false;
   for (let i = 0; i < thread.messages.length; i++) {
+    if (thread.messages[i]?.user === process.env["BOT_USER_ID"]) continue;
     try {
       await createUser(
         client,
-        (thread.messages[i]?.user as string) ??
+        (thread.messages[i]?.user ??
           thread.messages[i]?.bot_id ??
-          thread.messages[i]?.app_id,
+          thread.messages[i]?.app_id) as string,
       );
     } catch (e) {
       console.error("Error creating user ", thread.messages[i]?.user as string);
@@ -116,6 +116,8 @@ export async function indexThread(
         },
       });
       if (!r) {
+        if (thread.messages[i]?.text === "?resolve") continue;
+        if (thread.messages[i]?.text === "?reopen") continue;
         try {
           r = await prisma.reply.create({
             data: {
@@ -167,7 +169,11 @@ export async function indexThread(
           },
         })) as TicketWithAssignees;
       }
-      if (r.slackUser.isBot && r.message.includes(program.resolveKeyword)) {
+      if (
+        (r.slackUser.isBot ||
+          r.slackUser.id === process.env["RESOLVER_USER_ID"]) &&
+        r.message.includes(program.resolveKeyword)
+      ) {
         let resolver = null;
         try {
           resolver = await getResolver(r.message);
@@ -176,6 +182,8 @@ export async function indexThread(
           console.error("Reply: ", r);
           console.error("Ticket: ", ticket);
         }
+        if (!resolver) continue;
+        if (resolver.id === process.env["RESOLVER_USER_ID"]) continue; // skip any resolver messages with resolver ID
         try {
           const resolverData = resolver?.id ? { resolverId: resolver.id } : {};
           ticket = (await prisma.ticket.update({
@@ -199,7 +207,21 @@ export async function indexThread(
           console.error("Reply: ", r);
         }
       }
-      if (r.slackUser.isBot && r.message.includes("reopened")) {
+      if (
+        (r.slackUser.isBot ||
+          r.slackUser.id === process.env["RESOLVER_USER_ID"]) &&
+        r.message.includes("reopened")
+      ) {
+        let resolver = null;
+        try {
+          resolver = await getResolver(r.message);
+        } catch (e) {
+          console.error("Error finding resolver: ", e);
+          console.error("Reply: ", r);
+          console.error("Ticket: ", ticket);
+        }
+        if (resolver && resolver.id === process.env["RESOLVER_USER_ID"])
+          continue; // skip any resolver messages with resolver ID
         try {
           ticket = (await prisma.ticket.update({
             where: {
