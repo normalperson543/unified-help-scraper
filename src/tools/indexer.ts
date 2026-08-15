@@ -2,6 +2,7 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import type { Ticket, SlackUser } from "../generated/prisma/client.js";
+import { RESOLVE_MACROS } from "../lib/constants.js";
 
 type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
 
@@ -169,6 +170,28 @@ export async function indexThread(
           },
         })) as TicketWithAssignees;
       }
+      if (RESOLVE_MACROS.some((m) => m.keyword === r.message)) {
+        // resolve the ticket anonymously
+        try {
+          ticket = (await prisma.ticket.update({
+            where: {
+              id: ticket.id,
+            },
+            data: {
+              status: 2,
+              resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
+              resolveDate: r.dateCreated,
+            },
+            include: {
+              assignees: true,
+            },
+          })) as TicketWithAssignees;
+        } catch (e) {
+          console.error("Problem resolving from macro: ", e);
+          console.error("Occurred on ticket ", ticket.id);
+          console.error("Reply: ", r);
+        }
+      }
       if (
         (r.slackUser.isBot ||
           r.slackUser.id === process.env["RESOLVER_USER_ID"]) &&
@@ -284,7 +307,7 @@ export async function indexThread(
         }
       }
     }
-  }
+  } // end execution on every reply
 }
 export async function addAsHelper(
   slackId: string,
