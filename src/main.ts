@@ -279,6 +279,7 @@ async function startBacklogTask(
           subteam_id,
           " but no program was found, ignoring",
         );
+        return;
       }
       console.log("Adding users ", added_users, " to ", program?.id);
       for (let i = 0; i < added_users.length; i++) {
@@ -305,6 +306,7 @@ async function startBacklogTask(
           channel,
           " but no program was found, ignoring",
         );
+        return;
       }
       console.log("Adding user ", user, " to ", program?.id);
       try {
