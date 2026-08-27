@@ -3,28 +3,81 @@ import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import type { Ticket, SlackUser } from "../generated/prisma/client.js";
 import { RESOLVE_MACROS } from "../lib/constants.js";
+import type { FlaronUserResponse } from "../lib/types.js";
 
 type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
 
 export async function createUser(client: WebClient, id: string) {
-  const user = await prisma.slackUser.findUnique({
+  let dbUser;
+  dbUser = await prisma.slackUser.findUnique({
     where: {
       id: id as string,
     },
   });
-  if (!user) {
-    const slackUser = await client.users.info({
-      user: id as string,
-    });
-    await prisma.slackUser.create({
-      data: {
-        id: id as string,
-        username:
-          slackUser.user?.real_name ?? slackUser.user?.name ?? "Unknown user",
-        isBot: slackUser.user?.is_bot ?? false,
-      },
-    });
+  if (!dbUser) {
+    const flaronUser = await fetch(`https://flaron.halceon.dev/user/${id}`);
+    if (flaronUser && flaronUser.ok) {
+      const respJson = (await flaronUser.json()) as FlaronUserResponse;
+      let username;
+      if (
+        respJson.data.user.display_name &&
+        respJson.data.user.display_name.length > 0
+      ) {
+        username = respJson.data.user.display_name;
+      } else if (
+        respJson.data.user.real_name &&
+        respJson.data.user.real_name.length > 0
+      ) {
+        username = respJson.data.user.real_name;
+      } else if (
+        respJson.data.user.name &&
+        respJson.data.user.name.length > 0
+      ) {
+        username = respJson.data.user.name;
+      } else {
+        console.warn("WARNING: No username gathered from Flaron ", id);
+        username = "Unknown user";
+      }
+      dbUser = await prisma.slackUser.create({
+        data: {
+          id: id as string,
+          username: username,
+          isBot: respJson.data.user.is_bot ?? false,
+        },
+      });
+    } else {
+      console.warn(
+        `WARNING: Flaron lookup failed for ${id}, falling back to slack lookup`,
+      );
+      const slackUser = await client.users.info({
+        user: id as string,
+      });
+      let username;
+      if (
+        slackUser.user?.profile?.display_name &&
+        slackUser.user?.profile?.display_name.length > 0
+      ) {
+        username = slackUser.user?.profile?.display_name;
+      } else if (
+        slackUser.user?.real_name &&
+        slackUser.user?.real_name.length > 0
+      ) {
+        username = slackUser.user?.real_name;
+      } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
+        username = slackUser.user?.name;
+      } else {
+        console.warn("WARNING: No username gathered from Flaron ", id);
+        username = "Unknown user";
+      }
+      dbUser = await prisma.slackUser.create({
+        data: {
+          id: id as string,
+          username: username,
+        },
+      });
+    }
   }
+  return dbUser;
 }
 export async function indexThread(
   client: WebClient,
@@ -161,7 +214,10 @@ export async function indexThread(
           },
         })) as TicketWithAssignees;
       }
-      if (RESOLVE_MACROS.some((m) => r.message.includes(m.keyword)) && r.slackUser.isBot) {
+      if (
+        RESOLVE_MACROS.some((m) => r.message.includes(m.keyword)) &&
+        r.slackUser.isBot
+      ) {
         // resolve the ticket anonymously
         try {
           ticket = (await prisma.ticket.update({
@@ -197,27 +253,31 @@ export async function indexThread(
           console.error("Ticket: ", ticket);
         }
         if (!resolver) continue;
-        try {
-          const resolverData = resolver?.id ? { resolverId: resolver.id } : {};
-          ticket = (await prisma.ticket.update({
-            where: {
-              id: ticket.id,
-            },
-            data: {
-              ...resolverData,
-              status: 2,
-              resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
-              resolveDate: r.dateCreated,
-            },
-            include: {
-              assignees: true,
-            },
-          })) as TicketWithAssignees;
-        } catch (e) {
-          console.error("Problem assigning a resolver: ", e);
-          console.error("Resolver: ", resolver);
-          console.error("Occurred on ticket ", ticket.id);
-          console.error("Reply: ", r);
+        if (resolver.id !== process.env["RESOLVER_USER_ID"]) {
+          try {
+            const resolverData = resolver?.id
+              ? { resolverId: resolver.id }
+              : {};
+            ticket = (await prisma.ticket.update({
+              where: {
+                id: ticket.id,
+              },
+              data: {
+                ...resolverData,
+                status: 2,
+                resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
+                resolveDate: r.dateCreated,
+              },
+              include: {
+                assignees: true,
+              },
+            })) as TicketWithAssignees;
+          } catch (e) {
+            console.error("Problem assigning a resolver: ", e);
+            console.error("Resolver: ", resolver);
+            console.error("Occurred on ticket ", ticket.id);
+            console.error("Reply: ", r);
+          }
         }
       }
       if (
