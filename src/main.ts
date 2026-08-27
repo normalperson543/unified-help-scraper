@@ -10,18 +10,8 @@ import {
 import type { BacklogJob } from "./lib/types.js";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
-import * as Sentry from "@sentry/node";
 
 config();
-
-if (process.env["SENTRY_URL"]) {
-  Sentry.init({
-    dsn: process.env["SENTRY_URL"],
-    environment: process.env["NODE_ENV"],
-  });
-} else {
-  console.warn("No Sentry URL found. Continuing without Sentry.");
-}
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env["SLACK_SIGNING_SECRET"]!,
