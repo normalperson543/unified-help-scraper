@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
-    "dev": "tsx watch src/main.ts"
+    "dev": "tsx watch src/main.ts",
+    "backlog-all": "tsx src/scripts/backlog-all.ts"
   },
   "keywords": [],
   "author": "",

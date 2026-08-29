@@ -2,11 +2,10 @@ import type { WebClient } from "@slack/web-api";
 import type { Program } from "../generated/prisma/client.js";
 import { indexThread } from "./indexer.js";
 import type { StopJob } from "../lib/types.js";
-import { currentState } from "../main.js";
+import { currentState } from "../lib/state.js";
 
 const stopQueue: StopJob[] = []; // extremely jank! but do i care? NO!
 
-// TODO: stop queue should be cleared per program when backlog starts
 export async function backlog(
   client: WebClient,
   program: Program,

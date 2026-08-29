@@ -61,6 +61,7 @@ export async function createUser(client: WebClient, id: string) {
       username = "Unknown user";
     }
   }
+ 
   if (!dbUser) {
     dbUser = await prisma.slackUser.create({
       data: {
@@ -70,6 +71,7 @@ export async function createUser(client: WebClient, id: string) {
       },
     });
   } else {
+     console.log("Updating Slack user details for ", dbUser.id)
     dbUser = await prisma.slackUser.update({
       where: {
         id: id as string,

@@ -7,9 +7,11 @@ import {
   indexUsersFromChannel,
   indexUsersFromUserGroup,
 } from "./tools/indexer.js";
-import type { BacklogJob } from "./lib/types.js";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
+import { currentState } from "./lib/state.js";
+
+export { currentState };
 
 config();
 
@@ -25,10 +27,6 @@ const app = new App({
 
 const server = express();
 const port = 4000;
-
-export const currentState = {
-  backlogger: <BacklogJob[]>[],
-};
 
 /* claude code, temporary */
 process.on("unhandledRejection", (reason) =>
