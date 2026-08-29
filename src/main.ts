@@ -233,7 +233,7 @@ async function startBacklogTask(
         },
       });
     }
-    if (message.subtype === undefined) {
+    if (message.subtype === undefined || message.subtype === "bot_message") {
       const program = await prisma.program.findFirst({
         where: {
           channelId: message.channel,
