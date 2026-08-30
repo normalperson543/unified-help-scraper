@@ -261,7 +261,10 @@ export async function indexThread(
           console.error("Ticket: ", ticket);
         }
         try {
-          const resolverData = resolver?.id ? { resolverId: resolver.id } : {};
+          const resolverData =
+            resolver?.id && resolver.id !== process.env["RESOLVER_USER_ID"]
+              ? { resolverId: resolver.id }
+              : {};
           ticket = (await prisma.ticket.update({
             where: {
               id: ticket.id,
@@ -398,6 +401,78 @@ export async function indexThread(
       }
     }
   } // end execution on every reply
+}
+export async function reindexTicket(
+  client: WebClient,
+  ticketId: string,
+  actorId?: string,
+) {
+  // ai generated as this is for admins only
+  const ticket = await prisma.ticket.findUnique({
+    where: {
+      id: ticketId,
+    },
+    include: {
+      program: true,
+    },
+  });
+  if (!ticket) throw new Error("TICKET_NOT_FOUND");
+
+  // fetch the thread first so nothing gets wiped if Slack is unreachable
+  const thread = await client.conversations.replies({
+    channel: ticket.program.channelId,
+    ts: ticket.messageId,
+  });
+  if (!thread.messages || thread.messages.length === 0)
+    throw new Error("THREAD_NOT_FOUND");
+
+  const rootMessage = thread.messages[0] as
+    | ((typeof thread.messages)[number] & { pinned_to?: string[] })
+    | undefined;
+  if (rootMessage?.pinned_to && rootMessage.pinned_to.length > 0) {
+    throw new Error("THREAD_IS_PINNED");
+  }
+
+  console.log(
+    `Reindexing ticket ${ticket.id} (requested by ${actorId ?? "unknown user"})`,
+  );
+
+  // wipe everything that was indexed from Slack so the thread can be rebuilt from scratch
+  await createUser(client, rootMessage?.user as string);
+  await prisma.reply.deleteMany({
+    where: {
+      ticketId: ticket.id,
+    },
+  });
+  await prisma.ticket.update({
+    where: {
+      id: ticket.id,
+    },
+    data: {
+      message: (rootMessage?.text as string) ?? null,
+      status: 0,
+      responseTime: 0,
+      resolveTime: 0,
+      resolveDate: null,
+      assignDate: null,
+      resolver: {
+        disconnect: true,
+      },
+      firstResponseUser: {
+        disconnect: true,
+      },
+      assignees: {
+        set: [],
+      },
+    },
+  });
+
+  await indexThread(
+    client,
+    ticket.programId,
+    ticket.program.channelId,
+    ticket.messageId,
+  );
 }
 export async function addAsHelper(
   slackId: string,

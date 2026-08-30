@@ -6,6 +6,7 @@ import {
   indexThread,
   indexUsersFromChannel,
   indexUsersFromUserGroup,
+  reindexTicket,
 } from "./tools/indexer.js";
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
@@ -114,6 +115,18 @@ server.post("/api/index-channel/:id", (req, res) => {
 
   indexUsersFromChannel(channelId, programId, app.client);
   return res.json({ status: "created" });
+});
+server.post("/api/reindex-ticket/:id", async (req, res) => {
+  const ticketId = req.params.id;
+  const actorId = req.body.actorId;
+  try {
+    await reindexTicket(app.client, ticketId, actorId);
+    return res.json({ status: "success" });
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    console.error(`Reindex of ticket ${ticketId} failed: ${error}`);
+    return res.status(500).json({ status: "failed", error: error });
+  }
 });
 server.get("/api/backlog/:id/status", (req, res) => {
   const programId = req.params.id;

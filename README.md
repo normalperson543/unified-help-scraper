@@ -29,6 +29,8 @@ The scraper provides an authenticated Express-based API so that Unified Help can
 
 `POST /api/backlog/[program ID]/stop` - Stops any backlog tasks for a program. Requires an actorId in the request body that indicates the Unified Help user ID that executed this command.
 
+`POST /api/reindex-ticket/[ticket ID]` - Reindexes a specific ticket from Slack. Requires an actorId in the request body corresponding to the Unified Help user ID that executed this task. All replies and computed ticket data (assignees, resolver, response times, status) are wiped and re-indexed from the Slack thread. The request finishes when the reindex is complete and returns `{status: "success"}`, or `{status: "failed", error}` if the ticket or its Slack thread could not be found.
+
 ## Getting started
 
 This requires a Slack bot to be installed into your workspace. Go to https://api.slack.com/apps and create a new app with the `manifest.json` file provided at the Unified Help repository: https://github.com/normalperson543/unified-help/blob/main/manifest.json
