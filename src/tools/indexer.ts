@@ -248,11 +248,44 @@ export async function indexThread(
         }
       }
       if (
-        (r.slackUser.isBot &&
-          r.slackUser.id === program.supportBotId &&
-          r.message.includes(program.resolveKeyword)) ||
-        (r.slackUser.id === process.env["RESOLVER_USER_ID"] &&
-          r.message.includes("Marked as resolved"))
+        r.slackUser.isBot &&
+        r.slackUser.id === program.supportBotId &&
+        r.message.includes(program.resolveKeyword)
+      ) {
+        let resolver = null;
+        try {
+          resolver = await getResolver(r.message);
+        } catch (e) {
+          console.error("Error finding resolver: ", e);
+          console.error("Reply: ", r);
+          console.error("Ticket: ", ticket);
+        }
+        try {
+          const resolverData = resolver?.id ? { resolverId: resolver.id } : {};
+          ticket = (await prisma.ticket.update({
+            where: {
+              id: ticket.id,
+            },
+            data: {
+              ...resolverData,
+              status: 2,
+              resolveTime: Number(r.messageId) - Number(r.ticket.messageId),
+              resolveDate: r.dateCreated,
+            },
+            include: {
+              assignees: true,
+            },
+          })) as TicketWithAssignees;
+        } catch (e) {
+          console.error("Problem resolving ticket: ", e);
+          console.error("Resolver: ", resolver);
+          console.error("Occurred on ticket ", ticket.id);
+          console.error("Reply: ", r);
+        }
+      }
+      if (
+        r.slackUser.id === process.env["RESOLVER_USER_ID"] &&
+        r.message.includes("Marked as resolved")
       ) {
         let resolver = null;
         try {
