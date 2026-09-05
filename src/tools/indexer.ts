@@ -2,7 +2,7 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import type { Ticket, SlackUser } from "../generated/prisma/client.js";
-import { RESOLVE_MACROS } from "../lib/constants.js";
+import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
 import type { FlaronUserResponse } from "../lib/types.js";
 
 export type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
@@ -211,8 +211,7 @@ export async function indexThread(
       console.error("Thread message: ", thread.messages[i]);
     }
     if (i > 0) {
-      if (thread.messages[i]?.text === "?resolve") continue;
-      if (thread.messages[i]?.text === "?reopen") continue;
+      if (isMacroCommand(thread.messages[i]?.text ?? "")) continue;
 
       if (!replyAuthor) {
         console.error(
@@ -535,7 +534,11 @@ export async function addAsHelper(
   programId: string,
   client: WebClient,
 ) {
-  await createUser(client, slackId);
+  const user = await createUser(client, slackId);
+  if (user.isBot) {
+    console.log(`Skipping bot ${slackId} for program ${programId}`);
+    return;
+  }
   await prisma.slackUser.update({
     where: {
       id: slackId,
