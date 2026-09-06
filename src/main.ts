@@ -322,6 +322,7 @@ async function handleManagedProgramMacro(
                 text: { type: "plain_text", text: "Resolve", emoji: true },
                 value: updatedTicket.id,
                 action_id: "resolve",
+                style: "primary"
               },
             ],
           },
@@ -385,6 +386,7 @@ async function handleManagedProgramMacro(
                 text: { type: "plain_text", text: "Reopen", emoji: true },
                 value: updatedTicket.id,
                 action_id: "reopen",
+                style: "primary"
               },
             ],
           },
@@ -441,6 +443,7 @@ async function handleManagedProgramMacro(
               text: { type: "plain_text", text: "Reopen", emoji: true },
               value: ticket.id,
               action_id: "reopen",
+              style: "primary"
             },
           ],
         },
@@ -565,6 +568,7 @@ async function handleManagedProgramMacro(
                     },
                     value: ticket.id,
                     action_id: "resolve",
+                    style: "primary"
                   },
                 ],
               },
@@ -768,6 +772,7 @@ async function handleManagedProgramMacro(
                   },
                   value: updatedTicket.id,
                   action_id: "reopen",
+                  style: "primary"
                 },
               ],
             },
@@ -894,6 +899,7 @@ async function handleManagedProgramMacro(
                   },
                   value: updatedTicket.id,
                   action_id: "resolve",
+                  style: "primary"
                 },
               ],
             },
