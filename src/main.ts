@@ -248,7 +248,11 @@ async function handleManagedProgramMacro(
   message: { user?: string; thread_ts?: string; ts?: string; text?: string },
 ): Promise<boolean> {
   // most of this is AI generated
-  if (!program.managed || !message.text || !message.text.trim().startsWith("?")) {
+  if (
+    !program.managed ||
+    !message.text ||
+    !message.text.trim().startsWith("?")
+  ) {
     return false;
   }
 
@@ -322,7 +326,7 @@ async function handleManagedProgramMacro(
                 text: { type: "plain_text", text: "Resolve", emoji: true },
                 value: updatedTicket.id,
                 action_id: "resolve",
-                style: "primary"
+                style: "primary",
               },
             ],
           },
@@ -369,7 +373,13 @@ async function handleManagedProgramMacro(
         blocks: [
           {
             type: "section",
-            text: { type: "mrkdwn", text: ticket.program.resolveMessage },
+            text: {
+              type: "mrkdwn",
+              text: ticket.program.resolveMessage.replace(
+                "{USERNAME}",
+                `<@${authorId}>`,
+              ),
+            },
           },
           {
             type: "section",
@@ -386,7 +396,7 @@ async function handleManagedProgramMacro(
                 text: { type: "plain_text", text: "Reopen", emoji: true },
                 value: updatedTicket.id,
                 action_id: "reopen",
-                style: "primary"
+                style: "primary",
               },
             ],
           },
@@ -443,7 +453,7 @@ async function handleManagedProgramMacro(
               text: { type: "plain_text", text: "Reopen", emoji: true },
               value: ticket.id,
               action_id: "reopen",
-              style: "primary"
+              style: "primary",
             },
           ],
         },
@@ -545,7 +555,7 @@ async function handleManagedProgramMacro(
                   type: "mrkdwn",
                   text: program.createMessage.replace(
                     "{USERNAME}",
-                    user.username,
+                    `<@${message.user}>`,
                   ),
                 },
               },
@@ -568,7 +578,7 @@ async function handleManagedProgramMacro(
                     },
                     value: ticket.id,
                     action_id: "resolve",
-                    style: "primary"
+                    style: "primary",
                   },
                 ],
               },
@@ -750,7 +760,10 @@ async function handleManagedProgramMacro(
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: ticket.program.resolveMessage,
+                text: ticket.program.resolveMessage.replace(
+                  "{USERNAME}",
+                  `<@${resolverId}>`,
+                ),
               },
             },
             {
@@ -772,7 +785,7 @@ async function handleManagedProgramMacro(
                   },
                   value: updatedTicket.id,
                   action_id: "reopen",
-                  style: "primary"
+                  style: "primary",
                 },
               ],
             },
@@ -899,7 +912,7 @@ async function handleManagedProgramMacro(
                   },
                   value: updatedTicket.id,
                   action_id: "resolve",
-                  style: "primary"
+                  style: "primary",
                 },
               ],
             },
