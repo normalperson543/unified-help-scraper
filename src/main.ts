@@ -522,6 +522,15 @@ async function handleManagedProgramMacro(
     if (!message.thread_ts) {
       // new ticket
       if (program.managed) {
+        const newMessage = message as typeof message & {
+          metadata?: { event_type: string };
+        };
+        if (newMessage.metadata?.event_type === "anchor") {
+          console.log(`Skipping possibly anchored message ${message.ts}`);
+          return;
+        }
+        console.log(newMessage);
+
         const user = await createUser(app.client, message.user as string);
         const ticket = await prisma.ticket.create({
           data: {
