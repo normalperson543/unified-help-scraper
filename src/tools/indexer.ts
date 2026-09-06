@@ -2,79 +2,130 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import type { Ticket, SlackUser } from "../generated/prisma/client.js";
-import { RESOLVE_MACROS } from "../lib/constants.js";
+import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
 import type { FlaronUserResponse } from "../lib/types.js";
 
-type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
+export type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
+
+function getMessageAuthorId(
+  message:
+    | { user?: string; bot_id?: string; app_id?: string }
+    | undefined,
+): string | undefined {
+  return message?.user ?? message?.bot_id ?? message?.app_id;
+}
 
 export async function createUser(client: WebClient, id: string) {
-  let dbUser;
-  dbUser = await prisma.slackUser.findUnique({
-    where: {
-      id: id as string,
-    },
-  });
-  let username;
-  let isBot: boolean;
-  const flaronUser = await fetch(`https://flaron.halceon.dev/user/${id}`);
-  if (flaronUser && flaronUser.ok) {
-    const respJson = (await flaronUser.json()) as FlaronUserResponse;
-    isBot = respJson.data.user.is_bot ?? false;
-    if (
-      respJson.data.user.display_name &&
-      respJson.data.user.display_name.length > 0
-    ) {
-      username = respJson.data.user.display_name;
-    } else if (
-      respJson.data.user.real_name &&
-      respJson.data.user.real_name.length > 0
-    ) {
-      username = respJson.data.user.real_name;
-    } else if (respJson.data.user.name && respJson.data.user.name.length > 0) {
-      username = respJson.data.user.name;
-    } else {
-      console.warn("WARNING: No username gathered from Flaron ", id);
-      username = "Unknown user";
-    }
-  } else {
-    console.warn(
-      `WARNING: Flaron lookup failed for ${id}, falling back to slack lookup`,
-    );
-    const slackUser = await client.users.info({
-      user: id as string,
-    });
-    isBot = slackUser.user?.is_bot ?? false;
-    if (
-      slackUser.user?.profile?.display_name &&
-      slackUser.user?.profile?.display_name.length > 0
-    ) {
-      username = slackUser.user?.profile?.display_name;
-    } else if (
-      slackUser.user?.real_name &&
-      slackUser.user?.real_name.length > 0
-    ) {
-      username = slackUser.user?.real_name;
-    } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
-      username = slackUser.user?.name;
-    } else {
-      console.warn("WARNING: No username gathered from Slack ", id);
-      username = "Unknown user";
+  let effectiveId = id;
+  let username: string | undefined;
+  let isBot = false;
+
+  // Bot IDs start with B and do not work with users.info. Resolve them to the
+  // underlying bot user ID when possible, otherwise keep the bot ID.
+  if (id.startsWith("B")) {
+    try {
+      const botInfo = await client.bots.info({ bot: id });
+      if (botInfo.bot?.user_id) {
+        effectiveId = botInfo.bot.user_id;
+      }
+      username = botInfo.bot?.name ?? undefined;
+      isBot = true;
+    } catch (_e) {
+      console.warn(`WARNING: bots.info failed for ${id}, using bot id directly`);
+      isBot = true;
     }
   }
- 
+
+  let dbUser = await prisma.slackUser.findUnique({
+    where: {
+      id: effectiveId,
+    },
+  });
+
+  // If bots.info already gave us a name, skip the external user lookups.
+  if (!username) {
+    const flaronUser = await fetch(
+      `https://flaron.halceon.dev/user/${effectiveId}`,
+    );
+    if (flaronUser && flaronUser.ok) {
+      try {
+        const respJson = (await flaronUser.json()) as FlaronUserResponse;
+        if (respJson.data?.user) {
+          isBot = respJson.data.user.is_bot ?? false;
+          if (
+            respJson.data.user.display_name &&
+            respJson.data.user.display_name.length > 0
+          ) {
+            username = respJson.data.user.display_name;
+          } else if (
+            respJson.data.user.real_name &&
+            respJson.data.user.real_name.length > 0
+          ) {
+            username = respJson.data.user.real_name;
+          } else if (
+            respJson.data.user.name &&
+            respJson.data.user.name.length > 0
+          ) {
+            username = respJson.data.user.name;
+          }
+        } else {
+          console.warn(
+            `WARNING: Flaron returned no user data for ${effectiveId}`,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          `WARNING: Failed to parse Flaron response for ${effectiveId}`,
+          e,
+        );
+      }
+    }
+
+    if (!username) {
+      console.warn(
+        `WARNING: Flaron lookup failed for ${effectiveId}, falling back to slack lookup`,
+      );
+      try {
+        const slackUser = await client.users.info({
+          user: effectiveId,
+        });
+        isBot = slackUser.user?.is_bot ?? false;
+        if (
+          slackUser.user?.profile?.display_name &&
+          slackUser.user?.profile?.display_name.length > 0
+        ) {
+          username = slackUser.user.profile.display_name;
+        } else if (
+          slackUser.user?.real_name &&
+          slackUser.user?.real_name.length > 0
+        ) {
+          username = slackUser.user.real_name;
+        } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
+          username = slackUser.user.name;
+        }
+      } catch (e) {
+        console.warn(`WARNING: Slack lookup failed for ${effectiveId}`, e);
+      }
+    }
+  }
+
+  if (!username) {
+    username = isBot ? "Unknown bot" : "Unknown user";
+  }
+
   if (!dbUser) {
     dbUser = await prisma.slackUser.create({
       data: {
-        id: id as string,
+        id: effectiveId,
         username: username,
         isBot: isBot,
       },
     });
   } else {
-     console.log("Updating Slack user details for ", dbUser.id)
+    console.log("Updating Slack user details for ", dbUser.id);
     dbUser = await prisma.slackUser.update({
       where: {
-        id: id as string,
+        id: effectiveId,
       },
       data: {
         username: username,
@@ -125,7 +176,10 @@ export async function indexThread(
   if (existingTicket) {
     ticket = existingTicket;
   } else {
-    await createUser(client, thread.messages[0]?.user as string);
+    const ticketAuthor = await createUser(
+      client,
+      getMessageAuthorId(thread.messages[0]) as string,
+    );
     ticket = (await prisma.ticket.create({
       data: {
         messageId: threadTs,
@@ -134,7 +188,7 @@ export async function indexThread(
         dateCreated: new Date(
           parseFloat(thread.messages[0]?.ts as string) * 1000,
         ),
-        slackUserId: thread.messages[0]?.user as string,
+        slackUserId: ticketAuthor.id,
       },
       include: {
         assignees: true,
@@ -147,22 +201,25 @@ export async function indexThread(
 
   let assignedFirst = false;
   for (let i = 0; i < thread.messages.length; i++) {
-    if (thread.messages[i]?.user === process.env["BOT_USER_ID"]) continue;
+    let replyAuthor: SlackUser | undefined;
+    const authorId = getMessageAuthorId(thread.messages[i]);
     try {
-      await createUser(
-        client,
-        (thread.messages[i]?.user ??
-          thread.messages[i]?.bot_id ??
-          thread.messages[i]?.app_id) as string,
-      );
+      replyAuthor = await createUser(client, authorId as string);
     } catch (e) {
-      console.error("Error creating user ", thread.messages[i]?.user as string);
+      console.error("Error creating user ", authorId);
       console.error(e);
       console.error("Thread message: ", thread.messages[i]);
     }
     if (i > 0) {
-      if (thread.messages[i]?.text === "?resolve") continue;
-      if (thread.messages[i]?.text === "?reopen") continue;
+      if (isMacroCommand(thread.messages[i]?.text ?? "")) continue;
+
+      if (!replyAuthor) {
+        console.error(
+          "Skipping reply without an author: ",
+          thread.messages[i]?.ts,
+        );
+        continue;
+      }
 
       let r;
       try {
@@ -178,7 +235,7 @@ export async function indexThread(
             dateCreated: new Date(
               parseFloat(thread.messages[i]?.ts as string) * 1000,
             ),
-            slackUserId: thread.messages[i]?.user as string,
+            slackUserId: replyAuthor.id,
           },
           include: {
             slackUser: {
@@ -202,6 +259,9 @@ export async function indexThread(
         console.error("Reply info: ", thread.messages[i]);
         console.error("Ticket info: ", ticket);
         continue;
+      }
+      if (thread.messages[i]?.user === process.env["BOT_USER_ID"]) {
+        console.log("bot!!!")
       }
       if (
         r.slackUser.programs.some((p) => p.id === programId) &&
@@ -249,7 +309,7 @@ export async function indexThread(
       }
       if (
         r.slackUser.isBot &&
-        r.slackUser.id === program.supportBotId &&
+        (program.managed || r.slackUser.id === program.supportBotId) &&
         r.message.includes(program.resolveKeyword)
       ) {
         let resolver = null;
@@ -323,7 +383,7 @@ export async function indexThread(
       }
       if (
         ((r.slackUser.isBot &&
-          r.slackUser.id === program.supportBotId) ||
+          (program.managed || r.slackUser.id === program.supportBotId)) ||
           r.slackUser.id === process.env["RESOLVER_USER_ID"]) &&
         r.message.includes("reopened")
       ) {
@@ -438,7 +498,7 @@ export async function reindexTicket(
   );
 
   // wipe everything that was indexed from Slack so the thread can be rebuilt from scratch
-  await createUser(client, rootMessage?.user as string);
+  await createUser(client, getMessageAuthorId(rootMessage) as string);
   await prisma.reply.deleteMany({
     where: {
       ticketId: ticket.id,
@@ -479,7 +539,11 @@ export async function addAsHelper(
   programId: string,
   client: WebClient,
 ) {
-  await createUser(client, slackId);
+  const user = await createUser(client, slackId);
+  if (user.isBot) {
+    console.log(`Skipping bot ${slackId} for program ${programId}`);
+    return;
+  }
   await prisma.slackUser.update({
     where: {
       id: slackId,
