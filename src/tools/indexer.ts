@@ -527,7 +527,12 @@ export async function reindexTicket(
     },
   });
 
-  
+  await indexThread(
+    client,
+    ticket.programId,
+    ticket.program.channelId,
+    ticket.messageId,
+  );
 }
 export async function addAsHelper(
   slackId: string,
