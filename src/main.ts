@@ -14,6 +14,7 @@ import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
 import { currentState } from "./lib/state.js";
 import { getHangTime } from "./lib/tools.js";
+import { syncTicketReaction } from "./lib/slack.js";
 import { getManagedProgramMacro } from "./lib/constants.js";
 
 export { currentState };
@@ -298,6 +299,13 @@ async function handleManagedProgramMacro(
         include: { assignees: true },
       })) as TicketWithAssignees;
 
+      await syncTicketReaction(
+        client,
+        ticket.program.channelId,
+        ticket.messageId,
+        updatedTicket.status,
+      );
+
       const hangTime = await getHangTime(
         ticket.program.id,
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
@@ -363,6 +371,13 @@ async function handleManagedProgramMacro(
         },
         include: { assignees: true },
       })) as TicketWithAssignees;
+
+      await syncTicketReaction(
+        client,
+        ticket.program.channelId,
+        ticket.messageId,
+        updatedTicket.status,
+      );
 
       await client.chat.postMessage({
         channel: ticket.program.channelId,
@@ -433,6 +448,13 @@ async function handleManagedProgramMacro(
         resolveDate: new Date(parseFloat(actionTs) * 1000),
       },
     });
+
+    await syncTicketReaction(
+      client,
+      ticket.program.channelId,
+      ticket.messageId,
+      2,
+    );
 
     await client.chat.postMessage({
       channel: ticket.program.channelId,
@@ -757,6 +779,13 @@ async function handleManagedProgramMacro(
         include: { assignees: true },
       })) as TicketWithAssignees;
 
+      await syncTicketReaction(
+        client,
+        ticket.program.channelId,
+        ticket.messageId,
+        updatedTicket.status,
+      );
+
       try {
         await client.chat.postMessage({
           channel: channelId,
@@ -887,6 +916,13 @@ async function handleManagedProgramMacro(
         },
         include: { assignees: true },
       })) as TicketWithAssignees;
+
+      await syncTicketReaction(
+        client,
+        ticket.program.channelId,
+        ticket.messageId,
+        updatedTicket.status,
+      );
 
       const hangTime = await getHangTime(
         ticket.program.id,

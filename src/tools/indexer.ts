@@ -1,6 +1,7 @@
 import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
+import { syncTicketReaction } from "../lib/slack.js";
 import type { Ticket, SlackUser } from "../generated/prisma/client.js";
 import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
 import type { FlaronUserResponse } from "../lib/types.js";
@@ -196,6 +197,12 @@ export async function indexThread(
     })) as TicketWithAssignees;
     console.log(
       `Indexed ticket from ${new Date(ticket.dateCreated).toLocaleString()}`,
+    );
+    await syncTicketReaction(
+      client,
+      channel,
+      ticket.messageId,
+      ticket.status,
     );
   }
 
@@ -461,6 +468,8 @@ export async function indexThread(
       }
     }
   } // end execution on every reply
+
+  await syncTicketReaction(client, channel, ticket.messageId, ticket.status);
 }
 export async function reindexTicket(
   client: WebClient,
