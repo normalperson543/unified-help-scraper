@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
-    "backlog-all": "tsx src/scripts/backlog-all.ts"
+    "backlog-all": "tsx src/scripts/backlog-all.ts",
+    "remove-recent-reactions": "tsx src/scripts/remove-recent-reactions.ts"
   },
   "keywords": [],
   "author": "",
