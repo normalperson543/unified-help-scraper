@@ -16,6 +16,21 @@ function bar(done: number, total: number, width = 24): string {
   return "[" + "=".repeat(filled) + "-".repeat(Math.max(0, width - filled)) + "]";
 }
 
+function createRateLimiter(callsPerMinute: number) {
+  const minIntervalMs = 60000 / callsPerMinute;
+  let lastCallTime = 0;
+
+  return async function rateLimit<T>(fn: () => Promise<T>): Promise<T> {
+    const now = Date.now();
+    const elapsed = now - lastCallTime;
+    if (elapsed < minIntervalMs) {
+      await new Promise((resolve) => setTimeout(resolve, minIntervalMs - elapsed));
+    }
+    lastCallTime = Date.now();
+    return fn();
+  };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const hoursArg = args.find((a) => !a.startsWith("-"));
@@ -39,6 +54,7 @@ async function main() {
   }
 
   const client = new WebClient(token);
+  const rateLimit = createRateLimiter(20);
   const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
 
   console.log(
@@ -82,11 +98,13 @@ async function main() {
     );
 
     try {
-      const reactionsRes = await client.reactions.get({
-        channel: ticket.program.channelId,
-        timestamp: ticket.messageId,
-        full: true,
-      });
+      const reactionsRes = await rateLimit(() =>
+        client.reactions.get({
+          channel: ticket.program.channelId,
+          timestamp: ticket.messageId,
+          full: true,
+        }),
+      );
 
       const reactions = reactionsRes.message?.reactions ?? [];
       if (reactions.length === 0) {
@@ -106,11 +124,13 @@ async function main() {
         }
 
         try {
-          await client.reactions.remove({
-            channel: ticket.program.channelId,
-            timestamp: ticket.messageId,
-            name: emoji,
-          });
+          await rateLimit(() =>
+            client.reactions.remove({
+              channel: ticket.program.channelId,
+              timestamp: ticket.messageId,
+              name: emoji,
+            }),
+          );
           console.log(`  removed :${emoji}:`);
           removed++;
         } catch (e) {
