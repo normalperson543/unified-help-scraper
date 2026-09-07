@@ -5,9 +5,10 @@ import { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 
 function usage() {
-  console.error("Usage: tsx src/scripts/remove-recent-reactions.ts <hours> [--dry-run]");
-  console.error("  hours:    how far back to look (positive number). e.g. 24");
-  console.error("  --dry-run: list the reactions that would be removed without removing them");
+  console.error("Usage: tsx src/scripts/remove-recent-reactions.ts <hours> [--dry-run] [--resume-after <ticket-id>]");
+  console.error("  hours:              how far back to look (positive number). e.g. 24");
+  console.error("  --dry-run:          list the reactions that would be removed without removing them");
+  console.error("  --resume-after:     skip tickets up to and including this ticket id, then continue");
 }
 
 function bar(done: number, total: number, width = 24): string {
@@ -35,6 +36,15 @@ async function main() {
   const args = process.argv.slice(2);
   const hoursArg = args.find((a) => !a.startsWith("-"));
   const dryRun = args.includes("--dry-run");
+
+  const resumeAfterIndex = args.indexOf("--resume-after");
+  const resumeAfterTicketId =
+    resumeAfterIndex !== -1 ? args[resumeAfterIndex + 1] : undefined;
+  if (resumeAfterIndex !== -1 && !resumeAfterTicketId) {
+    console.error("Error: --resume-after requires a ticket id.");
+    usage();
+    process.exit(1);
+  }
 
   if (!hoursArg) {
     usage();
@@ -84,6 +94,31 @@ async function main() {
   }
 
   console.log(`Found ${tickets.length} ticket(s).`);
+
+  let skippedTickets = 0;
+  if (resumeAfterTicketId) {
+    const resumeIndex = tickets.findIndex((t) => t.id === resumeAfterTicketId);
+    if (resumeIndex === -1) {
+      console.error(
+        `Error: ticket ${resumeAfterTicketId} was not found in the last ${hours} hour(s). It may be outside the time range or the id may be wrong.`,
+      );
+      await prisma.$disconnect();
+      process.exit(1);
+    }
+    skippedTickets = resumeIndex + 1;
+    tickets.splice(0, skippedTickets);
+    console.log(
+      `Resuming after ticket ${resumeAfterTicketId}; skipping ${skippedTickets} already-processed ticket(s).`,
+    );
+  }
+
+  if (tickets.length === 0) {
+    console.log("No remaining tickets to process.");
+    await prisma.$disconnect();
+    return;
+  }
+
+  console.log(`Processing ${tickets.length} remaining ticket(s).`);
   console.log();
 
   let removed = 0;
