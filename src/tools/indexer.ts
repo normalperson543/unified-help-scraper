@@ -2,16 +2,17 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import { syncTicketReaction } from "../lib/slack.js";
-import type { Ticket, SlackUser } from "../generated/prisma/client.js";
+import type { Ticket, SlackUser, Program } from "../generated/prisma/client.js";
 import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
 import type { FlaronUserResponse } from "../lib/types.js";
 
-export type TicketWithAssignees = Ticket & { assignees: SlackUser[] };
+export type TicketWithAssignees = Ticket & {
+  assignees: SlackUser[];
+  program: Program;
+};
 
 function getMessageAuthorId(
-  message:
-    | { user?: string; bot_id?: string; app_id?: string }
-    | undefined,
+  message: { user?: string; bot_id?: string; app_id?: string } | undefined,
 ): string | undefined {
   return message?.user ?? message?.bot_id ?? message?.app_id;
 }
@@ -32,7 +33,9 @@ export async function createUser(client: WebClient, id: string) {
       username = botInfo.bot?.name ?? undefined;
       isBot = true;
     } catch (_e) {
-      console.warn(`WARNING: bots.info failed for ${id}, using bot id directly`);
+      console.warn(
+        `WARNING: bots.info failed for ${id}, using bot id directly`,
+      );
       isBot = true;
     }
   }
@@ -170,6 +173,7 @@ export async function indexThread(
     },
     include: {
       assignees: true,
+      program: true,
     },
   });
 
@@ -193,17 +197,20 @@ export async function indexThread(
       },
       include: {
         assignees: true,
+        program: true,
       },
     })) as TicketWithAssignees;
     console.log(
       `Indexed ticket from ${new Date(ticket.dateCreated).toLocaleString()}`,
     );
-    await syncTicketReaction(
-      client,
-      channel,
-      ticket.messageId,
-      ticket.status,
-    );
+    if (ticket.program.managed) {
+      await syncTicketReaction(
+        client,
+        channel,
+        ticket.messageId,
+        ticket.status,
+      );
+    }
   }
 
   let assignedFirst = false;
@@ -268,7 +275,7 @@ export async function indexThread(
         continue;
       }
       if (thread.messages[i]?.user === process.env["BOT_USER_ID"]) {
-        console.log("bot!!!")
+        console.log("bot!!!");
       }
       if (
         r.slackUser.programs.some((p) => p.id === programId) &&
@@ -468,8 +475,9 @@ export async function indexThread(
       }
     }
   } // end execution on every reply
-
-  await syncTicketReaction(client, channel, ticket.messageId, ticket.status);
+  if (ticket.program.managed) {
+    await syncTicketReaction(client, channel, ticket.messageId, ticket.status);
+  }
 }
 export async function reindexTicket(
   client: WebClient,
