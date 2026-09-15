@@ -19,7 +19,6 @@ function getMessageAuthorId(
 
 export async function createUser(client: WebClient, id: string) {
   let effectiveId = id;
-  let username: string | undefined;
   let isBot = false;
 
   // Bot IDs start with B and do not work with users.info. Resolve them to the
@@ -46,8 +45,9 @@ export async function createUser(client: WebClient, id: string) {
     },
   });
 
-  // If bots.info already gave us a name, skip the external user lookups.
-  if (!username) {
+  if (!dbUser) {
+    let username;
+    // now this should ONLY FETCH when there is no user
     const flaronUser = await fetch(
       `https://flaron.halceon.dev/user/${effectiveId}`,
     );
@@ -83,55 +83,41 @@ export async function createUser(client: WebClient, id: string) {
           e,
         );
       }
+
+      if (!username) {
+        console.warn(
+          `WARNING: Flaron lookup failed for ${effectiveId}, falling back to slack lookup`,
+        );
+        try {
+          const slackUser = await client.users.info({
+            user: effectiveId,
+          });
+          isBot = slackUser.user?.is_bot ?? false;
+          if (
+            slackUser.user?.profile?.display_name &&
+            slackUser.user?.profile?.display_name.length > 0
+          ) {
+            username = slackUser.user.profile.display_name;
+          } else if (
+            slackUser.user?.real_name &&
+            slackUser.user?.real_name.length > 0
+          ) {
+            username = slackUser.user.real_name;
+          } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
+            username = slackUser.user.name;
+          }
+        } catch (e) {
+          console.warn(`WARNING: Slack lookup failed for ${effectiveId}`, e);
+        }
+      }
     }
 
     if (!username) {
-      console.warn(
-        `WARNING: Flaron lookup failed for ${effectiveId}, falling back to slack lookup`,
-      );
-      try {
-        const slackUser = await client.users.info({
-          user: effectiveId,
-        });
-        isBot = slackUser.user?.is_bot ?? false;
-        if (
-          slackUser.user?.profile?.display_name &&
-          slackUser.user?.profile?.display_name.length > 0
-        ) {
-          username = slackUser.user.profile.display_name;
-        } else if (
-          slackUser.user?.real_name &&
-          slackUser.user?.real_name.length > 0
-        ) {
-          username = slackUser.user.real_name;
-        } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
-          username = slackUser.user.name;
-        }
-      } catch (e) {
-        console.warn(`WARNING: Slack lookup failed for ${effectiveId}`, e);
-      }
+      username = isBot ? "Unknown bot" : "Unknown user";
     }
-  }
-
-  if (!username) {
-    username = isBot ? "Unknown bot" : "Unknown user";
-  }
-
-  if (!dbUser) {
     dbUser = await prisma.slackUser.create({
       data: {
         id: effectiveId,
-        username: username,
-        isBot: isBot,
-      },
-    });
-  } else {
-    console.log("Updating Slack user details for ", dbUser.id);
-    dbUser = await prisma.slackUser.update({
-      where: {
-        id: effectiveId,
-      },
-      data: {
         username: username,
         isBot: isBot,
       },
@@ -290,6 +276,7 @@ export async function indexThread(
           },
           include: {
             assignees: true,
+            program: true
           },
         })) as TicketWithAssignees;
       }
@@ -313,6 +300,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
+              program: true
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -351,6 +339,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
+              program: true
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -386,6 +375,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
+              program: true
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -426,6 +416,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
+              program: true
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -450,6 +441,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
+              program: true
             },
           })) as TicketWithAssignees;
         }
@@ -466,6 +458,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
+              program: true
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -475,6 +468,7 @@ export async function indexThread(
       }
     }
   } // end execution on every reply
+  console.log(ticket.program)
   if (ticket.program.managed) {
     await syncTicketReaction(client, channel, ticket.messageId, ticket.status);
   }
