@@ -21,24 +21,6 @@ export async function createUser(client: WebClient, id: string) {
   let effectiveId = id;
   let isBot = false;
 
-  // Bot IDs start with B and do not work with users.info. Resolve them to the
-  // underlying bot user ID when possible, otherwise keep the bot ID.
-  if (id.startsWith("B")) {
-    try {
-      const botInfo = await client.bots.info({ bot: id });
-      if (botInfo.bot?.user_id) {
-        effectiveId = botInfo.bot.user_id;
-      }
-      username = botInfo.bot?.name ?? undefined;
-      isBot = true;
-    } catch (_e) {
-      console.warn(
-        `WARNING: bots.info failed for ${id}, using bot id directly`,
-      );
-      isBot = true;
-    }
-  }
-
   let dbUser = await prisma.slackUser.findUnique({
     where: {
       id: effectiveId,
@@ -48,6 +30,23 @@ export async function createUser(client: WebClient, id: string) {
   if (!dbUser) {
     let username;
     // now this should ONLY FETCH when there is no user
+
+    if (id.startsWith("B")) {
+      try {
+        const botInfo = await client.bots.info({ bot: id });
+        if (botInfo.bot?.user_id) {
+          effectiveId = botInfo.bot.user_id;
+        }
+        username = botInfo.bot?.name ?? undefined;
+        isBot = true;
+      } catch (_e) {
+        console.warn(
+          `WARNING: bots.info failed for ${id}, using bot id directly`,
+        );
+        isBot = true;
+      }
+    }
+
     const flaronUser = await fetch(
       `https://flaron.halceon.dev/user/${effectiveId}`,
     );
@@ -276,7 +275,7 @@ export async function indexThread(
           },
           include: {
             assignees: true,
-            program: true
+            program: true,
           },
         })) as TicketWithAssignees;
       }
@@ -300,7 +299,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
-              program: true
+              program: true,
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -339,7 +338,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
-              program: true
+              program: true,
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -375,7 +374,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
-              program: true
+              program: true,
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -416,7 +415,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
-              program: true
+              program: true,
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -441,7 +440,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
-              program: true
+              program: true,
             },
           })) as TicketWithAssignees;
         }
@@ -458,7 +457,7 @@ export async function indexThread(
             },
             include: {
               assignees: true,
-              program: true
+              program: true,
             },
           })) as TicketWithAssignees;
         } catch (e) {
@@ -468,7 +467,7 @@ export async function indexThread(
       }
     }
   } // end execution on every reply
-  console.log(ticket.program)
+  console.log(ticket.program);
   if (ticket.program.managed) {
     await syncTicketReaction(client, channel, ticket.messageId, ticket.status);
   }
