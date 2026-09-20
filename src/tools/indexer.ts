@@ -258,6 +258,31 @@ export async function indexThread(
         console.error("Ticket info: ", ticket);
         continue;
       }
+
+      if (
+        r.message === "?thread" &&
+        !ticket.program.managed &&
+        r.slackUser.programs.some((p) => p.id === programId)
+      ) {
+        console.log("Deleting ticket for threading: ", ticket);
+        await prisma.reply.deleteMany({
+          where: {
+            ticketId: ticket.id,
+          },
+        });
+        await prisma.iNote.deleteMany({
+          where: {
+            ticketId: ticket.id,
+          },
+        });
+        await prisma.ticket.delete({
+          where: {
+            id: ticket.id,
+          },
+        });
+        return;
+      }
+
       if (thread.messages[i]?.user === process.env["BOT_USER_ID"]) {
         console.log("bot!!!");
       }
