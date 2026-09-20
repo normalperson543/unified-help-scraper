@@ -29,6 +29,33 @@ function median(values: number[]): number | null {
   return sorted[mid] ?? 0;
 }
 
+export function humanizeDuration(totalSeconds: number): string {
+  if (totalSeconds <= 0) return "0 seconds";
+
+  const total = Math.round(totalSeconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+
+  const parts: string[] = [];
+
+  if (hours > 0) {
+    parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+    if (minutes > 0) {
+      parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+    }
+  } else if (minutes > 0) {
+    parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+    if (seconds > 0) {
+      parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
+    }
+  } else {
+    parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
+  }
+
+  return parts.join(" ");
+}
+
 export async function getHangTime(
   programId: string,
   oldest: Date,

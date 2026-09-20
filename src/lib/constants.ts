@@ -53,6 +53,13 @@ export const MANAGED_PROGRAM_MACROS: ManagedProgramMacro[] = [
     action: "resolve",
   },
   {
+    macro: "?stale",
+    label: "Stale",
+    message:
+      "Hey, {USERNAME}! It seems like this ticket has been inactive for some days so I'll be closing it.\nIf your question wasn't answered, please feel free to make a new one. Thanks!",
+    action: "resolve",
+  },
+  {
     macro: "?resolve",
     label: "Resolve",
     message: "",
@@ -63,13 +70,6 @@ export const MANAGED_PROGRAM_MACROS: ManagedProgramMacro[] = [
     label: "Reopen",
     message: "",
     action: "reopen",
-  },
-  {
-    macro: "?stale",
-    label: "Stale",
-    message:
-      "Hey, {USERNAME}! It seems like this ticket has been inactive for some days so I'll be closing it.\nIf your question wasn't answered, please feel free to make a new one. Thanks!",
-    action: "resolve",
   },
 ];
 

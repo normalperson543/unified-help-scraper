@@ -1,3 +1,5 @@
+import type { Program, SlackUser, Ticket } from "../generated/prisma/client.js";
+
 export type BacklogJob = {
   programId: string;
   actorId: string;
@@ -42,3 +44,8 @@ export type FlaronUserResponse = {
     "fraud": string
   }
 }
+
+export type TicketWithAssignees = Ticket & {
+  assignees: SlackUser[];
+  program: Program;
+};

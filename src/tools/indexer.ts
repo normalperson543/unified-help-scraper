@@ -2,14 +2,9 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import { syncTicketReaction } from "../lib/slack.js";
-import type { Ticket, SlackUser, Program } from "../generated/prisma/client.js";
+import type { SlackUser } from "../generated/prisma/client.js";
 import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
-import type { FlaronUserResponse } from "../lib/types.js";
-
-export type TicketWithAssignees = Ticket & {
-  assignees: SlackUser[];
-  program: Program;
-};
+import type { FlaronUserResponse, TicketWithAssignees } from "../lib/types.js";
 
 function getMessageAuthorId(
   message: { user?: string; bot_id?: string; app_id?: string } | undefined,
@@ -18,111 +13,115 @@ function getMessageAuthorId(
 }
 
 export async function createUser(client: WebClient, id: string) {
+  let dbUser = await prisma.slackUser.findUnique({
+    where: { id: id },
+  });
+  if (dbUser) return dbUser;
+
   let effectiveId = id;
   let isBot = false;
+  let username: string | undefined;
 
-  let dbUser = await prisma.slackUser.findUnique({
-    where: {
+  if (id.startsWith("B")) {
+    try {
+      const botInfo = await client.bots.info({ bot: id });
+      if (botInfo.bot?.user_id) {
+        effectiveId = botInfo.bot.user_id;
+      }
+      username = botInfo.bot?.name ?? undefined;
+      isBot = true;
+    } catch (_e) {
+      console.warn(
+        `WARNING: bots.info failed for ${id}, using bot id directly`,
+      );
+      isBot = true;
+    }
+  }
+
+  // If we resolved a bot ID to a user ID, check again before doing further lookups.
+  dbUser = await prisma.slackUser.findUnique({
+    where: { id: effectiveId },
+  });
+  if (dbUser) return dbUser;
+
+  const flaronUser = await fetch(
+    `https://flaron.halceon.dev/user/${effectiveId}`,
+  );
+  if (flaronUser && flaronUser.ok) {
+    try {
+      const respJson = (await flaronUser.json()) as FlaronUserResponse;
+      if (respJson.data?.user) {
+        isBot = respJson.data.user.is_bot ?? false;
+        if (
+          respJson.data.user.display_name &&
+          respJson.data.user.display_name.length > 0
+        ) {
+          username = respJson.data.user.display_name;
+        } else if (
+          respJson.data.user.real_name &&
+          respJson.data.user.real_name.length > 0
+        ) {
+          username = respJson.data.user.real_name;
+        } else if (
+          respJson.data.user.name &&
+          respJson.data.user.name.length > 0
+        ) {
+          username = respJson.data.user.name;
+        }
+      } else {
+        console.warn(
+          `WARNING: Flaron returned no user data for ${effectiveId}`,
+        );
+      }
+    } catch (e) {
+      console.warn(
+        `WARNING: Failed to parse Flaron response for ${effectiveId}`,
+        e,
+      );
+    }
+  }
+
+  // users.info only accepts user IDs, not bot IDs.
+  if (!username && !effectiveId.startsWith("B")) {
+    console.warn(
+      `WARNING: Flaron lookup failed for ${effectiveId}, falling back to slack lookup`,
+    );
+    try {
+      const slackUser = await client.users.info({
+        user: effectiveId,
+      });
+      isBot = slackUser.user?.is_bot ?? false;
+      if (
+        slackUser.user?.profile?.display_name &&
+        slackUser.user?.profile?.display_name.length > 0
+      ) {
+        username = slackUser.user.profile.display_name;
+      } else if (
+        slackUser.user?.real_name &&
+        slackUser.user?.real_name.length > 0
+      ) {
+        username = slackUser.user.real_name;
+      } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
+        username = slackUser.user.name;
+      }
+    } catch (e) {
+      console.warn(`WARNING: Slack lookup failed for ${effectiveId}`, e);
+    }
+  }
+
+  if (!username) {
+    username = isBot ? "Unknown bot" : "Unknown user";
+  }
+
+  return prisma.slackUser.upsert({
+    where: { id: effectiveId },
+    update: {},
+    create: {
       id: effectiveId,
+      username: username,
+      isBot: isBot,
     },
   });
-
-  if (!dbUser) {
-    let username;
-    // now this should ONLY FETCH when there is no user
-
-    if (id.startsWith("B")) {
-      try {
-        const botInfo = await client.bots.info({ bot: id });
-        if (botInfo.bot?.user_id) {
-          effectiveId = botInfo.bot.user_id;
-        }
-        username = botInfo.bot?.name ?? undefined;
-        isBot = true;
-      } catch (_e) {
-        console.warn(
-          `WARNING: bots.info failed for ${id}, using bot id directly`,
-        );
-        isBot = true;
-      }
-    }
-
-    const flaronUser = await fetch(
-      `https://flaron.halceon.dev/user/${effectiveId}`,
-    );
-    if (flaronUser && flaronUser.ok) {
-      try {
-        const respJson = (await flaronUser.json()) as FlaronUserResponse;
-        if (respJson.data?.user) {
-          isBot = respJson.data.user.is_bot ?? false;
-          if (
-            respJson.data.user.display_name &&
-            respJson.data.user.display_name.length > 0
-          ) {
-            username = respJson.data.user.display_name;
-          } else if (
-            respJson.data.user.real_name &&
-            respJson.data.user.real_name.length > 0
-          ) {
-            username = respJson.data.user.real_name;
-          } else if (
-            respJson.data.user.name &&
-            respJson.data.user.name.length > 0
-          ) {
-            username = respJson.data.user.name;
-          }
-        } else {
-          console.warn(
-            `WARNING: Flaron returned no user data for ${effectiveId}`,
-          );
-        }
-      } catch (e) {
-        console.warn(
-          `WARNING: Failed to parse Flaron response for ${effectiveId}`,
-          e,
-        );
-      }
-
-      if (!username) {
-        console.warn(
-          `WARNING: Flaron lookup failed for ${effectiveId}, falling back to slack lookup`,
-        );
-        try {
-          const slackUser = await client.users.info({
-            user: effectiveId,
-          });
-          isBot = slackUser.user?.is_bot ?? false;
-          if (
-            slackUser.user?.profile?.display_name &&
-            slackUser.user?.profile?.display_name.length > 0
-          ) {
-            username = slackUser.user.profile.display_name;
-          } else if (
-            slackUser.user?.real_name &&
-            slackUser.user?.real_name.length > 0
-          ) {
-            username = slackUser.user.real_name;
-          } else if (slackUser.user?.name && slackUser.user?.name.length > 0) {
-            username = slackUser.user.name;
-          }
-        } catch (e) {
-          console.warn(`WARNING: Slack lookup failed for ${effectiveId}`, e);
-        }
-      }
-    }
-
-    if (!username) {
-      username = isBot ? "Unknown bot" : "Unknown user";
-    }
-    dbUser = await prisma.slackUser.create({
-      data: {
-        id: effectiveId,
-        username: username,
-        isBot: isBot,
-      },
-    });
-  }
-  return dbUser;
 }
 export async function indexThread(
   client: WebClient,
