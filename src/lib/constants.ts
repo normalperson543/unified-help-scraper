@@ -18,6 +18,10 @@ export const RESOLVE_MACROS = [
   {
     keyword: "It seems like this ticket has been inactive for some days so I'll be closing it",
     friendlyMessage: "Resolved as stale"
+  },
+  {
+    keyword: "it looks like this post is a bit old",
+    friendlyMessage: "Resolved as stale"
   }
 ];
 
