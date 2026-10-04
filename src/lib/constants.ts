@@ -22,6 +22,10 @@ export const RESOLVE_MACROS = [
   {
     keyword: "it looks like this post is a bit old",
     friendlyMessage: "Resolved as stale"
+  },
+  {
+    keyword: "Could you please ask in #stardance-help",
+    friendlyMessage: "Redirected to Stardance"
   }
 ];
 
