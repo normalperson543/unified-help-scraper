@@ -328,6 +328,7 @@ async function startBacklogTask(
           id: ticket.id,
         },
       });
+      return;
     }
     if (message.subtype && message.subtype !== "file_share") return;
 
