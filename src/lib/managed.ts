@@ -1,6 +1,7 @@
 import type {
   GenericMessageEvent,
   FileShareMessageEvent,
+  BotMessageEvent,
   WebClient,
 } from "@slack/web-api";
 import { createUser, indexThread } from "../tools/indexer.js";
@@ -431,13 +432,31 @@ export async function handleManagedProgramMacro(
   }
 }
 
+export const FORWARD_EVENT_TYPE = "nephthys_plus_forward";
+
+export type MessageMetadata = {
+  event_type: string;
+  event_payload?: { source_user_id?: unknown; ticket?: unknown };
+};
+
+export function getForwardedTicketUser(
+  metadata: MessageMetadata | undefined,
+): string | undefined {
+  if (metadata?.event_type !== FORWARD_EVENT_TYPE) return undefined;
+  const payload = metadata.event_payload;
+  if (payload?.ticket !== true) return undefined;
+  return typeof payload.source_user_id === "string"
+    ? payload.source_user_id
+    : undefined;
+}
+
 export async function postManagedTicketReceived(
   client: WebClient,
-  message: GenericMessageEvent | FileShareMessageEvent,
+  message: GenericMessageEvent | FileShareMessageEvent | BotMessageEvent,
   program: Program,
 ) {
   const newMessage = message as typeof message & {
-    metadata?: { event_type: string };
+    metadata?: MessageMetadata;
   };
   if (newMessage.metadata?.event_type === "anchor") {
     console.log(`Skipping possibly anchored message ${message.ts}`);
@@ -445,14 +464,27 @@ export async function postManagedTicketReceived(
   }
   console.log(newMessage);
 
-  const user = await createUser(client, message.user as string);
+  const authorId =
+    getForwardedTicketUser(newMessage.metadata) ??
+    (message as { user?: string }).user;
+  if (!authorId) {
+    console.warn(`Skipping message ${message.ts} with no author`);
+    return;
+  }
+
+  const existing = await prisma.ticket.findFirst({
+    where: { messageId: message.ts, programId: program.id },
+  });
+  if (existing) return;
+
+  const user = await createUser(client, authorId);
   const ticket = await prisma.ticket.create({
     data: {
       messageId: message.ts,
       programId: program.id,
       message: (message.text as string) ?? null,
       dateCreated: new Date(parseFloat(message.ts as string) * 1000),
-      slackUserId: message.user as string,
+      slackUserId: authorId,
     },
     include: { program: true },
   });
@@ -478,7 +510,7 @@ export async function postManagedTicketReceived(
             type: "mrkdwn",
             text: program.createMessage.replace(
               "{USERNAME}",
-              `<@${message.user}>`,
+              `<@${authorId}>`,
             ),
           },
         },
