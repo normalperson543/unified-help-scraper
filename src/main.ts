@@ -14,6 +14,8 @@ import { currentState } from "./lib/state.js";
 import {
   handleManagedProgramMacro,
   postManagedTicketReceived,
+  getForwardedTicketUser,
+  type MessageMetadata,
   reopenManagedTicket,
   resolveManagedTicket,
   resolveWithMacro,
@@ -330,7 +332,15 @@ async function startBacklogTask(
       });
       return;
     }
-    if (message.subtype && message.subtype !== "file_share") return;
+    const forwardedBy = getForwardedTicketUser(
+      (message as { metadata?: MessageMetadata }).metadata,
+    );
+    if (
+      message.subtype &&
+      message.subtype !== "file_share" &&
+      !(message.subtype === "bot_message" && forwardedBy)
+    )
+      return;
 
     const program = await prisma.program.findFirst({
       where: {
@@ -371,6 +381,35 @@ async function startBacklogTask(
         console.warn(e);
       }
     }
+  });
+
+  app.event("message_metadata_posted", async ({ event, client }) => {
+    if (!getForwardedTicketUser(event.metadata as MessageMetadata)) return;
+
+    const program = await prisma.program.findFirst({
+      where: { channelId: event.channel_id },
+    });
+    if (!program?.managed) return;
+
+    const history = await client.conversations.history({
+      channel: event.channel_id,
+      latest: event.message_ts,
+      inclusive: true,
+      limit: 1,
+    });
+    const forwarded = history.messages?.[0];
+    if (!forwarded || forwarded.ts !== event.message_ts) return;
+    if (forwarded.thread_ts && forwarded.thread_ts !== forwarded.ts) return;
+
+    await postManagedTicketReceived(
+      client,
+      {
+        ...forwarded,
+        channel: event.channel_id,
+        metadata: event.metadata,
+      } as unknown as Parameters<typeof postManagedTicketReceived>[1],
+      program,
+    );
   });
 
   app.event("subteam_members_changed", async ({ event, client }) => {

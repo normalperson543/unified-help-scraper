@@ -15,6 +15,8 @@ https://youtu.be/0e4hW7Ox3P4
 
 The scraper receives events the Slack API using HTTP over port 4000 (/slack).
 
+To create tickets from Nephthys `?forward` messages, the Slack app must have the `metadata.message:read` bot scope and be subscribed to the `message_metadata_posted` bot event.
+
 The scraper provides an authenticated Express-based API so that Unified Help can interact with the scraper. You are not meant to directly interact with this API, it is only meant to be exposed with the Unified Help app, and changes can be breaking. The following is a list of the possible API routes (you must pass a x-api-token in headers matching the .env API token to see these routes):
 
 `GET /` - Returns `{online: "true"}` to indicate the scraper is responding correctly
