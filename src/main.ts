@@ -382,42 +382,6 @@ async function startBacklogTask(
     }
   });
 
-  app.event("message_metadata_posted", async ({ event, client }) => {
-    if (!getForwardedTicketUser(event.metadata as MessageMetadata)) return;
-
-    const program = await prisma.program.findFirst({
-      where: { channelId: event.channel_id },
-    });
-    if (!program) return;
-
-    const history = await client.conversations.history({
-      channel: event.channel_id,
-      latest: event.message_ts,
-      inclusive: true,
-      limit: 1,
-    });
-    const forwarded = history.messages?.[0];
-    if (!forwarded || forwarded.ts !== event.message_ts) return;
-    if (forwarded.thread_ts && forwarded.thread_ts !== forwarded.ts) return;
-
-    if (program.managed) {
-      await postManagedTicketReceived(
-        client,
-        {
-          ...forwarded,
-          channel: event.channel_id,
-          metadata: event.metadata,
-        } as unknown as Parameters<typeof postManagedTicketReceived>[1],
-        program,
-      );
-    }
-    try {
-      await indexThread(client, program.id, event.channel_id, forwarded.ts!);
-    } catch (e) {
-      console.warn(e);
-    }
-  });
-
   app.event("subteam_members_changed", async ({ event, client }) => {
     const { subteam_id, added_users } = event;
     if (added_users) {

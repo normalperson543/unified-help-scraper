@@ -455,11 +455,6 @@ export async function postManagedTicketReceived(
     return;
   }
 
-  const existing = await prisma.ticket.findFirst({
-    where: { messageId: message.ts, programId: program.id },
-  });
-  if (existing) return;
-
   const user = await createUser(client, authorId);
   const ticket = await prisma.ticket.create({
     data: {
