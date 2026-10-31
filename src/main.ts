@@ -11,6 +11,7 @@ import {
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
 import { currentState } from "./lib/state.js";
+import { getForwardedTicketUser, type MessageMetadata } from "./lib/forward.js";
 import {
   handleManagedProgramMacro,
   postManagedTicketReceived,
@@ -330,7 +331,15 @@ async function startBacklogTask(
       });
       return;
     }
-    if (message.subtype && message.subtype !== "file_share") return;
+    const forwardedBy = getForwardedTicketUser(
+      (message as { metadata?: MessageMetadata }).metadata,
+    );
+    if (
+      message.subtype &&
+      message.subtype !== "file_share" &&
+      !(message.subtype === "bot_message" && forwardedBy)
+    )
+      return;
 
     const program = await prisma.program.findFirst({
       where: {

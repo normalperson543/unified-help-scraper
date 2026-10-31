@@ -2,6 +2,7 @@ import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
 import { syncTicketReaction } from "../lib/slack.js";
+import { getForwardedTicketUser, type MessageMetadata } from "../lib/forward.js";
 import type { SlackUser } from "../generated/prisma/client.js";
 import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
 import type { FlaronUserResponse, TicketWithAssignees } from "../lib/types.js";
@@ -138,6 +139,7 @@ export async function indexThread(
   const thread = await client.conversations.replies({
     channel: channel,
     ts: threadTs,
+    include_all_metadata: true,
   });
   if (!thread.messages) return;
 
@@ -165,9 +167,12 @@ export async function indexThread(
   if (existingTicket) {
     ticket = existingTicket;
   } else {
+    // Nephthys ?forward posts as a bot; attribute the ticket to the original user
     const ticketAuthor = await createUser(
       client,
-      getMessageAuthorId(thread.messages[0]) as string,
+      (getForwardedTicketUser(
+        (rootMessage as { metadata?: MessageMetadata } | undefined)?.metadata,
+      ) ?? getMessageAuthorId(thread.messages[0])) as string,
     );
     ticket = (await prisma.ticket.create({
       data: {
