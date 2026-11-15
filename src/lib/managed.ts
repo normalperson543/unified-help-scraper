@@ -404,7 +404,7 @@ export async function handleManagedProgramMacro(
     if (macro.macro === "?resolve") {
       await resolveManagedTicket(
         client,
-        ticket.program.channelId,
+        threadTs,
         ticket.id,
         authorId,
         resolveTime,
