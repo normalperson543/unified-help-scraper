@@ -58,3 +58,21 @@ export async function syncTicketReaction(
     console.error("Error syncing ticket reaction:", e);
   }
 }
+
+export async function removeTicketStatusReactions(
+  client: WebClient,
+  channelId: string,
+  messageTs: string,
+) {
+  for (const name of STATUS_REACTION_EMOJIS) {
+    try {
+      await client.reactions.remove({
+        channel: channelId,
+        timestamp: messageTs,
+        name,
+      });
+    } catch (e) {
+      console.warn(`Failed to remove status reaction :${name}:`, e);
+    }
+  }
+}

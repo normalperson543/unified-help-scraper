@@ -4,6 +4,7 @@ import { config } from "dotenv";
 import {
   addAsHelper,
   indexThread,
+  isThreadIgnored,
   indexUsersFromChannel,
   indexUsersFromUserGroup,
   reindexTicket,
@@ -11,6 +12,7 @@ import {
 import express from "express";
 import { backlog, stopBacklog } from "./tools/backlogger.js";
 import { currentState } from "./lib/state.js";
+import { getForwardedTicketUser, type MessageMetadata } from "./lib/forward.js";
 import {
   handleManagedProgramMacro,
   postManagedTicketReceived,
@@ -330,7 +332,15 @@ async function startBacklogTask(
       });
       return;
     }
-    if (message.subtype && message.subtype !== "file_share") return;
+    const forwardedBy = getForwardedTicketUser(
+      (message as { metadata?: MessageMetadata }).metadata,
+    );
+    if (
+      message.subtype &&
+      message.subtype !== "file_share" &&
+      !(message.subtype === "bot_message" && forwardedBy)
+    )
+      return;
 
     const program = await prisma.program.findFirst({
       where: {
@@ -342,6 +352,9 @@ async function startBacklogTask(
       console.warn("Bot is not enrolled in this channel, skipping");
       return;
     }
+
+    const threadTs = message.thread_ts ?? message.ts;
+    if (threadTs && (await isThreadIgnored(program.id, threadTs))) return;
 
     if (!message.thread_ts) {
       // new ticket
@@ -365,6 +378,7 @@ async function startBacklogTask(
         console.warn(e);
       }
     } else {
+      console.log("indexing")
       try {
         indexThread(app.client, program.id, message.channel, message.ts!);
       } catch (e) {
