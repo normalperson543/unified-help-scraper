@@ -4,6 +4,7 @@ import { config } from "dotenv";
 import {
   addAsHelper,
   indexThread,
+  isThreadIgnored,
   indexUsersFromChannel,
   indexUsersFromUserGroup,
   reindexTicket,
@@ -352,6 +353,9 @@ async function startBacklogTask(
       return;
     }
 
+    const threadTs = message.thread_ts ?? message.ts;
+    if (threadTs && (await isThreadIgnored(program.id, threadTs))) return;
+
     if (!message.thread_ts) {
       // new ticket
       if (program.managed) {
@@ -374,6 +378,7 @@ async function startBacklogTask(
         console.warn(e);
       }
     } else {
+      console.log("indexing")
       try {
         indexThread(app.client, program.id, message.channel, message.ts!);
       } catch (e) {

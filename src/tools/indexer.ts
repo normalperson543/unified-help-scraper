@@ -1,7 +1,10 @@
 import type { WebClient } from "@slack/web-api";
 import { prisma } from "../lib/prisma.js";
 import { getResolver } from "../lib/tools.js";
-import { syncTicketReaction } from "../lib/slack.js";
+import {
+  removeTicketStatusReactions,
+  syncTicketReaction,
+} from "../lib/slack.js";
 import { getForwardedTicketUser, type MessageMetadata } from "../lib/forward.js";
 import type { SlackUser } from "../generated/prisma/client.js";
 import { RESOLVE_MACROS, isMacroCommand } from "../lib/constants.js";
@@ -11,6 +14,33 @@ function getMessageAuthorId(
   message: { user?: string; bot_id?: string; app_id?: string } | undefined,
 ): string | undefined {
   return message?.user ?? message?.bot_id ?? message?.app_id;
+}
+
+async function fetchThreadMessages(
+  client: WebClient,
+  channel: string,
+  threadTs: string,
+) {
+  const thread = await client.conversations.replies({
+    channel,
+    ts: threadTs,
+    include_all_metadata: true,
+  });
+  const messages = [...(thread.messages ?? [])];
+  let cursor = thread.response_metadata?.next_cursor;
+
+  while (cursor) {
+    const page = await client.conversations.replies({
+      channel,
+      ts: threadTs,
+      include_all_metadata: true,
+      cursor,
+    });
+    messages.push(...(page.messages ?? []));
+    cursor = page.response_metadata?.next_cursor;
+  }
+
+  return messages;
 }
 
 export async function createUser(client: WebClient, id: string) {
@@ -130,22 +160,20 @@ export async function indexThread(
   channel: string,
   threadTs: string,
 ) {
+  if (await isThreadIgnored(programId, threadTs)) return;
+
   const program = await prisma.program.findUnique({
     where: {
       id: programId,
     },
   });
   if (!program) return;
-  const thread = await client.conversations.replies({
-    channel: channel,
-    ts: threadTs,
-    include_all_metadata: true,
-  });
-  if (!thread.messages) return;
+  const threadMessages = await fetchThreadMessages(client, channel, threadTs);
+  if (threadMessages.length === 0) return;
 
   // this was geenrated with claude code because slack doesn't expose pinned messages for some reason?
-  const rootMessage = thread.messages[0] as
-    | ((typeof thread.messages)[number] & { pinned_to?: string[] })
+  const rootMessage = threadMessages[0] as
+    | ((typeof threadMessages)[number] & { pinned_to?: string[] })
     | undefined;
   if (rootMessage?.pinned_to && rootMessage.pinned_to.length > 0) {
     console.log(`Skipping pinned message ${threadTs}`);
@@ -172,15 +200,15 @@ export async function indexThread(
       client,
       (getForwardedTicketUser(
         (rootMessage as { metadata?: MessageMetadata } | undefined)?.metadata,
-      ) ?? getMessageAuthorId(thread.messages[0])) as string,
+      ) ?? getMessageAuthorId(threadMessages[0])) as string,
     );
     ticket = (await prisma.ticket.create({
       data: {
         messageId: threadTs,
         programId: programId,
-        message: (thread.messages[0]?.text as string) ?? null,
+        message: (threadMessages[0]?.text as string) ?? null,
         dateCreated: new Date(
-          parseFloat(thread.messages[0]?.ts as string) * 1000,
+          parseFloat(threadMessages[0]?.ts as string) * 1000,
         ),
         slackUserId: ticketAuthor.id,
       },
@@ -203,23 +231,23 @@ export async function indexThread(
   }
 
   let assignedFirst = false;
-  for (let i = 0; i < thread.messages.length; i++) {
+  for (let i = 0; i < threadMessages.length; i++) {
     let replyAuthor: SlackUser | undefined;
-    const authorId = getMessageAuthorId(thread.messages[i]);
+    const authorId = getMessageAuthorId(threadMessages[i]);
     try {
       replyAuthor = await createUser(client, authorId as string);
     } catch (e) {
       console.error("Error creating user ", authorId);
       console.error(e);
-      console.error("Thread message: ", thread.messages[i]);
+      console.error("Thread message: ", threadMessages[i]);
     }
     if (i > 0) {
-      if (isMacroCommand(thread.messages[i]?.text ?? "")) continue;
+      if (isMacroCommand(threadMessages[i]?.text ?? "")) continue;
 
       if (!replyAuthor) {
         console.error(
           "Skipping reply without an author: ",
-          thread.messages[i]?.ts,
+          threadMessages[i]?.ts,
         );
         continue;
       }
@@ -228,15 +256,15 @@ export async function indexThread(
       try {
         r = await prisma.reply.upsert({
           where: {
-            messageId: thread.messages[i]?.ts as string,
+            messageId: threadMessages[i]?.ts as string,
           },
           update: {},
           create: {
             ticketId: ticket.id,
-            messageId: thread.messages[i]?.ts as string,
-            message: thread.messages[i]?.text ?? "",
+            messageId: threadMessages[i]?.ts as string,
+            message: threadMessages[i]?.text ?? "",
             dateCreated: new Date(
-              parseFloat(thread.messages[i]?.ts as string) * 1000,
+              parseFloat(threadMessages[i]?.ts as string) * 1000,
             ),
             slackUserId: replyAuthor.id,
           },
@@ -256,19 +284,33 @@ export async function indexThread(
       } catch (e) {
         console.error(
           "Error indexing reply ",
-          thread.messages[i]?.ts as string,
+          threadMessages[i]?.ts as string,
         );
         console.error(e);
-        console.error("Reply info: ", thread.messages[i]);
+        console.error("Reply info: ", threadMessages[i]);
         console.error("Ticket info: ", ticket);
         continue;
       }
-
       if (
         r.message === "?thread" &&
-        !ticket.program.managed &&
         r.slackUser.programs.some((p) => p.id === programId)
       ) {
+        if (ticket.program.managed) {
+          await prisma.ignoredThread.upsert({
+            where: {
+              programId_messageId: {
+                programId,
+                messageId: threadTs,
+              },
+            },
+            update: {},
+            create: {
+              programId,
+              messageId: threadTs,
+            },
+          });
+        }
+
         console.log("Deleting ticket for threading: ", ticket);
         await prisma.reply.deleteMany({
           where: {
@@ -285,11 +327,44 @@ export async function indexThread(
             id: ticket.id,
           },
         });
-        return;
-      }
 
-      if (thread.messages[i]?.user === process.env["BOT_USER_ID"]) {
-        console.log("bot!!!");
+        if (ticket.program.managed) {
+          await removeTicketStatusReactions(client, channel, threadTs);
+          const botId = process.env["BOT_ID"];
+          if (!botId) {
+            console.error(
+              "Cannot delete Unified Help posts for ?thread: BOT_USER_ID is not configured",
+            );
+          } else {
+            try {
+              const messagesToDelete = await fetchThreadMessages(
+                client,
+                channel,
+                threadTs,
+              );
+              for (const message of messagesToDelete) {
+                if (message.bot_id !== botId || !message.ts) continue;
+                try {
+                  await client.chat.delete({
+                    channel,
+                    ts: message.ts,
+                  });
+                } catch (e) {
+                  console.error(
+                    `Failed to delete Unified Help message ${message.ts}:`,
+                    e,
+                  );
+                }
+              }
+            } catch (e) {
+              console.error(
+                `Failed to refetch Slack thread ${threadTs} for message deletion:`,
+                e,
+              );
+            }
+          }
+        }
+        return;
       }
       if (
         r.slackUser.programs.some((p) => p.id === programId) &&
@@ -496,11 +571,24 @@ export async function indexThread(
       }
     }
   } // end execution on every reply
-  console.log(ticket.program);
   if (ticket.program.managed) {
     await syncTicketReaction(client, channel, ticket.messageId, ticket.status);
   }
 }
+
+export async function isThreadIgnored(programId: string, threadTs: string) {
+  const ignoredThread = await prisma.ignoredThread.findUnique({
+    where: {
+      programId_messageId: {
+        programId,
+        messageId: threadTs,
+      },
+    },
+    select: { messageId: true },
+  });
+  return ignoredThread !== null;
+}
+
 export async function reindexTicket(
   client: WebClient,
   ticketId: string,

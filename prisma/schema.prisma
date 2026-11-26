@@ -43,6 +43,7 @@ model Program {
   name            String
   channelId       String
   tickets         Ticket[]
+  ignoredThreads  IgnoredThread[]
   assignedUsers   SlackUser[]
   logo            String?
   canAutoIndex    Boolean     @default(true)
@@ -60,8 +61,18 @@ model Program {
   supportBotName  String      @default("")
   claimed         Boolean     @default(false)
   poc             User?       @relation(fields: [pocUserId], references: [id])
+  nPlus           Boolean     @default(false)
 
   pocUserId String?
+}
+
+model IgnoredThread {
+  programId String
+  program   Program  @relation(fields: [programId], references: [id])
+  messageId String
+  createdAt DateTime @default(now())
+
+  @@id([programId, messageId])
 }
 
 model SlackUser {
