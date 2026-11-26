@@ -295,6 +295,7 @@ export async function indexThread(
         r.message === "?thread" &&
         r.slackUser.programs.some((p) => p.id === programId)
       ) {
+        /*
         if (ticket.program.managed) {
           await prisma.ignoredThread.upsert({
             where: {
@@ -310,7 +311,7 @@ export async function indexThread(
             },
           });
         }
-
+*/
         console.log("Deleting ticket for threading: ", ticket);
         await prisma.reply.deleteMany({
           where: {
@@ -577,7 +578,7 @@ export async function indexThread(
 }
 
 export async function isThreadIgnored(programId: string, threadTs: string) {
-  const ignoredThread = await prisma.ignoredThread.findUnique({
+  /*const ignoredThread = await prisma.ignoredThread.findUnique({
     where: {
       programId_messageId: {
         programId,
@@ -586,7 +587,8 @@ export async function isThreadIgnored(programId: string, threadTs: string) {
     },
     select: { messageId: true },
   });
-  return ignoredThread !== null;
+  return ignoredThread !== null;*/
+  return null
 }
 
 export async function reindexTicket(
